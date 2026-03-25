@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  heimsense:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: heimsense:latest
+    container_name: heimsense
+    ports:
+      - "8080:8080"
+    environment:
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.openai.com/v1}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-}
+      - FORCE_MODEL=${FORCE_MODEL:-}
+      - LISTEN_ADDR=:8080
+      - REQUEST_TIMEOUT_MS=${REQUEST_TIMEOUT_MS:-120000}
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
