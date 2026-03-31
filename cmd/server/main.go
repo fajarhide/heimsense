@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 
 // Version is the current version of the Heimsense binary.
 // Can be overridden via -ldflags="-X main.Version=v0.1.x"
-var Version = "v0.1.1"
+var Version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -54,7 +55,7 @@ func main() {
 		}
 		os.Exit(0)
 	case "version", "-v", "--version":
-		fmt.Printf("heimsense version %s\n", Version)
+		fmt.Printf("heimsense version %s\n", getVersion())
 		os.Exit(0)
 	case "help", "-h", "--help":
 		printHelp()
@@ -190,4 +191,32 @@ func printHelp() {
 	fmt.Println("    heimsense run      (Start background daemon/server)")
 	fmt.Println("    heimsense sync     (Sync manual .env changes to Claude Code)")
 	fmt.Println()
+}
+
+// getVersion returns the current version, optionally falling back to vcs info.
+func getVersion() string {
+	if Version != "dev" {
+		return Version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if info.Main.Version != "(devel)" && info.Main.Version != "" {
+			return info.Main.Version
+		}
+		var revision, modified string
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				revision = setting.Value
+			}
+			if setting.Key == "vcs.modified" && setting.Value == "true" {
+				modified = "-dirty"
+			}
+		}
+		if revision != "" {
+			if len(revision) > 7 {
+				revision = revision[:7]
+			}
+			return fmt.Sprintf("dev-%s%s", revision, modified)
+		}
+	}
+	return Version
 }

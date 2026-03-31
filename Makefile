@@ -19,10 +19,12 @@ help:
 	@sed -n 's/^## //p' $(MAKEFILE_LIST) | column -t -s ':'
 
 ## build: Compile the binary
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+
 build:
-	@echo "🔨 Building $(BINARY_NAME)..."
+	@echo "🔨 Building $(BINARY_NAME) $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	go build -trimpath -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PKG)
+	go build -trimpath -ldflags="-s -w -X main.Version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PKG)
 	@echo "✅ Built → $(BUILD_DIR)/$(BINARY_NAME)"
 
 ## run: Build and run the server
