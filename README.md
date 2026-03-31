@@ -106,8 +106,14 @@ graph LR
     end
 
     subgraph Heimsense
-        direction LR
-        H["Handler<br/><small>parse & validate</small>"] --> A["Adapter<br/><small>transform</small>"] --> C["Client<br/><small>HTTP + retry</small>"]
+        direction TB
+        CFG["⚙️ Config<br/><small>env / .env loader</small>"]
+        H["Handler<br/><small>parse & validate</small>"]
+        A["Adapter<br/><small>transform</small>"]
+        CL["Client<br/><small>HTTP + retry</small>"]
+        CFG -.-> H
+        CFG -.-> CL
+        H --> A --> CL
     end
 
     subgraph Upstream
@@ -115,19 +121,68 @@ graph LR
     end
 
     CC -- "POST /v1/messages<br/><small>Anthropic request</small>" --> H
-    C -- "/v1/chat/completions<br/><small>OpenAI request</small>" --> LP
-    LP -- "OpenAI response" --> C
-    C -- "Anthropic response" --> CC
+    CL -- "/v1/chat/completions<br/><small>OpenAI request</small>" --> LP
+    LP -. "OpenAI response" .-> CL
+    CL -. "Anthropic response" .-> CC
 ```
 
 ### Request Flow
 
+```mermaid
+sequenceDiagram
+    participant CC as Claude Code CLI
+    participant H as Handler
+    participant A as Adapter
+    participant CL as Client
+    participant UP as LLM Provider
+
+    CC->>H: POST /v1/messages (Anthropic)
+    H->>H: Validate (method, JSON, messages, max_tokens)
+    H->>A: ToOpenAIRequest(req, defaultModel, forceModel)
+    A-->>H: OpenAIRequest
+
+    alt Non-Streaming
+        H->>CL: ChatCompletion()
+        CL->>UP: POST /chat/completions (stream=false)
+        UP-->>CL: OpenAIResponse (JSON)
+        CL-->>H: OpenAIResponse
+        H->>A: ToAnthropicResponse()
+        A-->>H: AnthropicResponse
+        H-->>CC: JSON response
+    else Streaming (SSE)
+        H->>CL: ChatCompletionStream()
+        CL->>UP: POST /chat/completions (stream=true)
+        UP-->>CL: SSE stream (data: chunks)
+        loop Each SSE chunk
+            CL-->>H: OpenAI chunk
+            H->>H: Translate to Anthropic SSE events
+            H-->>CC: event: content_block_delta
+        end
+        H-->>CC: event: message_stop
+    end
+```
+
+### Model Resolution
+
+```mermaid
+flowchart TD
+    A["Incoming request"] --> B{ForceModel set?}
+    B -- Yes --> C["Use ForceModel<br/><small>always override</small>"]
+    B -- No --> D{Request has model?}
+    D -- Yes --> E["Use request model<br/><small>from client</small>"]
+    D -- No --> F{DefaultModel set?}
+    F -- Yes --> G["Use DefaultModel<br/><small>fallback</small>"]
+    F -- No --> H["Empty<br/><small>upstream decides</small>"]
+```
+
+### Steps
+
 1. **Receive** — Claude Code sends Anthropic-format request to `/v1/messages`
-2. **Parse** — Handler validates and extracts request components
-3. **Transform** — Adapter converts Anthropic schema → OpenAI schema
-4. **Forward** — Client sends to upstream with retry logic
+2. **Validate** — Handler checks method, JSON body, required fields
+3. **Transform** — Adapter converts Anthropic schema → OpenAI schema (with model resolution)
+4. **Forward** — Client sends to upstream with retry logic (exponential backoff on 5xx)
 5. **Adapt** — Response transformed back to Anthropic format
-6. **Return** — Claude Code receives expected response
+6. **Return** — Claude Code receives expected Anthropic response
 
 ### Translation Layer
 
@@ -269,9 +324,10 @@ All configuration via environment variables (or `.env` file):
 |----------|---------|-------------|
 | `ANTHROPIC_BASE_URL` | `https://api.openai.com/v1` | Upstream OpenAI-compatible API |
 | `ANTHROPIC_API_KEY` | — | Fallback API key for upstream |
-| `ANTHROPIC_CUSTOM_MODEL_OPTION  ` | — | Default model if not specified |
-| `ANTHROPIC_CUSTOM_MODEL_OPTION_NAME` | — | Default model if not specified |
-| `ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION` | — | Default model if not specified |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION` | — | Default model if request doesn't specify one |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION_NAME` | — | Display name in Claude Code `/model` menu |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION` | — | Description shown in Claude Code `/model` menu |
+| `ANTHROPIC_CUSTOM_FORCE_MODEL` | — | Force all requests to use this model (overrides client) |
 | `LISTEN_ADDR` | `:8080` | Server listen address |
 | `REQUEST_TIMEOUT_MS` | `120000` | Upstream timeout (ms) |
 | `MAX_RETRIES` | `3` | Retry attempts on 5xx errors |
@@ -569,15 +625,24 @@ message_start → content_block_start
 ```
 heimsense/
 ├── .github/workflows/              # CI, Release, Docker
-├── cmd/server/main.go              # Entry point
+├── cmd/server/main.go              # Entry point + logging middleware
 ├── internal/
-│   ├── adapter/transform.go        # Format transformation
-│   ├── client/openai.go            # HTTP client + retry
-│   ├── config/config.go            # Config loader
+│   ├── adapter/
+│   │   ├── transform.go            # Anthropic ↔ OpenAI transformation
+│   │   └── transform_test.go       # Adapter tests
+│   ├── client/
+│   │   ├── openai.go               # HTTP client + retry
+│   │   └── openai_test.go          # Client tests
+│   ├── config/
+│   │   ├── config.go               # Config loader
+│   │   ├── config_test.go          # Config tests
+│   │   └── dotenv.go               # .env file parser
 │   └── handler/
-│       ├── messages.go             # Request handler
-│       └── messages_test.go        # Tests
-├── scripts/setup-claude.sh         # Claude Code setup
+│       ├── messages.go             # Request handler + SSE streaming
+│       └── messages_test.go        # Handler tests
+├── scripts/
+│   ├── install.sh                  # One-line installer
+│   └── setup-claude.sh             # Claude Code setup
 ├── Containerfile                   # Container build
 ├── docker-compose.yaml             # Compose config
 ├── Makefile                        # Build targets
