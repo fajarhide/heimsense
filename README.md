@@ -18,13 +18,23 @@
   <a href="https://github.com/fajarhide/heimsense/pulls"><img src="https://img.shields.io/github/last-commit/fajarhide/heimsense.svg" alt="Last Commit"/></a>
 </p>
 
-> *"Like Heimdall's supernatural senses that perceive everything across the nine realms, Heimsense bridges your Claude CLI to any LLM provider."*
+> *Claude Code is the supercar. Heimsense gives any LLM the keys.* 🔱
 
-A lightweight, production-ready API adapter that enables **Claude Code CLI** (and any Anthropic-compatible client) to work with OpenAI-compatible backends.
+A lightweight, production-ready API adapter that gives **any LLM provider** the power of **Claude Code CLI** — by translating Anthropic's protocol to OpenAI's, and back. Zero dependencies. Single binary.
 
 ```
-Claude Code CLI ──► Heimsense (:8080) ──► Any LLM Provider
-  Anthropic format      translates          OpenAI format
+                          Heimsense
+                       ┌─────────────┐
+  Claude Code CLI ────►│  translates │────► Any LLM Provider
+  (Anthropic format)   │  both ways  │      (OpenAI format)
+                  ◄────│   :8080     │◄────
+                       └─────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+           OpenAI          DeepSeek         Ollama
+           Groq            Mistral        LM Studio
+           xAI             Together       vLLM  ...
 ```
 
 ---
@@ -785,4 +795,4 @@ MIT
 
 ---
 
-> *"Heimdall, guardian of the gods, will rise and sound the Gjallarhorn..."* — Now he guards your API gateway.
+> *"Heimdall guards the Bifröst, so that any worthy being may cross between realms."* — Heimsense guards your API, so that any LLM may drive Claude Code. 🔱
