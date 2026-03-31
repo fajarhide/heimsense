@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,9 +13,62 @@ import (
 	"github.com/fajarhide/heimsense/internal/client"
 	"github.com/fajarhide/heimsense/internal/config"
 	"github.com/fajarhide/heimsense/internal/handler"
+	"github.com/fajarhide/heimsense/internal/setup"
 )
 
+// Version is the current version of the Heimsense binary.
+// Can be overridden via -ldflags="-X main.Version=v0.1.x"
+var Version = "v0.1.1"
+
 func main() {
+	if len(os.Args) < 2 {
+		printHelp()
+		os.Exit(0)
+	}
+
+	command := os.Args[1]
+
+	// Handle subcommands.
+	switch command {
+	case "setup":
+		if err := setup.RunWizard(); err != nil {
+			fmt.Fprintf(os.Stderr, "  ✗ Setup failed: %v\n", err)
+			os.Exit(1)
+		}
+		// Set command to run so it continues to start server
+		command = "run"
+	case "run":
+		// Check first-run config
+		if setup.NeedsSetup() {
+			fmt.Println("  ℹ First run detected. Let's configure your setup.")
+			if err := setup.RunWizard(); err != nil {
+				fmt.Fprintf(os.Stderr, "  ✗ Setup failed: %v\n", err)
+				os.Exit(1)
+			}
+		}
+		// Continues outside the switch to start the server.
+	case "sync":
+		if err := setup.SyncToClaude(); err != nil {
+			fmt.Fprintf(os.Stderr, "  ✗ Sync failed: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	case "version", "-v", "--version":
+		fmt.Printf("heimsense version %s\n", Version)
+		os.Exit(0)
+	case "help", "-h", "--help":
+		printHelp()
+		os.Exit(0)
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
+		printHelp()
+		os.Exit(1)
+	}
+
+	if command != "run" {
+		return // Should not be accessible due to os.Exit in other cases, but just to be safe.
+	}
+
 	// Structured logger.
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -114,4 +168,26 @@ func (sw *statusWriter) Flush() {
 	if f, ok := sw.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
 	}
+}
+
+func printHelp() {
+	fmt.Println()
+	fmt.Printf("  %sHEIM·SENSE%s\n", "\033[1;36m", "\033[0m")
+	fmt.Printf("  %sUnlock Your Claude Code for Any LLM%s\n", "\033[3;36m", "\033[0m")
+	fmt.Println()
+	fmt.Println("  Usage:")
+	fmt.Println("    heimsense [command]")
+	fmt.Println()
+	fmt.Println("  Commands:")
+	fmt.Println("    setup    Launch the interactive setup wizard to configure provider, model, and port.")
+	fmt.Println("    run      Start the Heimsense server (also runs setup if config is missing).")
+	fmt.Println("    sync     Read ~/.heimsense/.env and sync its values to ~/.claude/settings.json.")
+	fmt.Println("    version  Show current version.")
+	fmt.Println("    help     Show this help message.")
+	fmt.Println()
+	fmt.Println("  Examples:")
+	fmt.Println("    heimsense setup    (Run interactive configuration)")
+	fmt.Println("    heimsense run      (Start background daemon/server)")
+	fmt.Println("    heimsense sync     (Sync manual .env changes to Claude Code)")
+	fmt.Println()
 }
