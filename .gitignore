@@ -11,6 +11,7 @@ bin/
 
 # Output of the go coverage tool
 *.out
+*.rdb
 coverage.txt
 coverage.html
 
