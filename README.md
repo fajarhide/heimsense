@@ -119,12 +119,12 @@ The ability to sense, route, and adapt API requests across the LLM multiverse.
 ```mermaid
 graph LR
     subgraph Client
-        CC["🖥️ Claude Code<br/><small>Anthropic format</small>"]
+        CC["Claude Code<br/><small>Anthropic format</small>"]
     end
 
     subgraph Heimsense
         direction TB
-        CFG["⚙️ Config<br/><small>env / .env loader</small>"]
+        CFG["Config<br/><small>env / .env loader</small>"]
         H["Handler<br/><small>parse & validate</small>"]
         A["Adapter<br/><small>transform</small>"]
         CL["Client<br/><small>HTTP + retry</small>"]
@@ -134,7 +134,7 @@ graph LR
     end
 
     subgraph Upstream
-        LP["🤖 LLM Provider<br/><small>OpenAI format</small>"]
+        LP["LLM Provider<br/><small>OpenAI format</small>"]
     end
 
     CC -- "POST /v1/messages<br/><small>Anthropic request</small>" --> H
