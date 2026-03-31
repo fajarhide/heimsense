@@ -37,14 +37,21 @@ In Norse mythology, **Heimdall** is the guardian of Bifröst — the rainbow bri
 
 ### The Philosophy
 
-Just as Heimdall stands at the gateway between realms, **Heimsense** sits between your Anthropic-compatible applications and the vast landscape of LLM providers:
+**Claude Code is a supercar.** It's one of the most powerful agentic coding tools ever built — autonomous file editing, multi-step reasoning, tool orchestration, and deep codebase understanding. But out of the box, only one engine fits: Claude.
+
+**Any LLM is a capable driver.** GPT, DeepSeek, Gemini, Llama, Qwen — they're all skilled, but they can't get behind the wheel of that supercar. The interface doesn't fit. The protocol doesn't match.
+
+**Heimsense gives any LLM the keys.** It translates the language barrier between Anthropic's protocol and OpenAI's protocol, so any model can drive the most powerful coding CLI available — unlocking capabilities they could never access alone.
+
+Just as Heimdall stands at the gateway of Bifröst, deciding who may cross between realms, **Heimsense** stands at the gateway between Claude Code and the vast landscape of LLM providers — letting any worthy model cross the bridge:
 
 | Heimdall | Heimsense |
 |----------|-----------|
 | Guards Bifröst (the bridge) | Guards your API gateway |
-| Sees across all nine realms | Connects to multiple LLM providers |
+| Lets worthy beings cross realms | Lets any LLM drive Claude Code |
+| Sees across all nine realms | Connects to 20+ LLM providers |
 | Never sleeps | Always-on, production-ready |
-| Heightened senses | Intelligent request routing |
+| Heightened senses | Intelligent request translation |
 | Warns of threats | Handles errors gracefully with retries |
 
 ### The Name
@@ -698,6 +705,77 @@ make docker-logs
 - Check `ANTHROPIC_API_KEY` in `.env`
 - Verify `ANTHROPIC_BASE_URL` is correct
 - Ensure key format matches provider requirements
+
+---
+
+## Comparison with Alternatives
+
+Several open-source projects solve the same problem — bridging Claude Code CLI to non-Anthropic providers. Here's how Heimsense compares:
+
+### Similar Projects
+
+| Project | Language | Approach | Dependencies |
+|---------|----------|----------|-------------|
+| [claude-code-proxy](https://github.com/fuergaosi233/claude-code-proxy) (fuergaosi233) | Python | Full-featured proxy with model mapping | Python runtime, pip packages |
+| [claude-code-proxy](https://github.com/1rgs/claude-code-proxy) (1rgs) | Python | LiteLLM-powered, supports 100+ providers | Python, LiteLLM, many transitive deps |
+| [anthropic-proxy-rs](https://github.com/m0n0x41d/anthropic-proxy-rs) | Rust | High-performance binary | Rust toolchain to build |
+| [claude-adapter](https://github.com/shantoislamdev/claude-adapter) | Node.js | Interactive CLI wizard for setup | Node.js runtime, npm packages |
+| **Heimsense** | **Go** | **Single binary, zero runtime dependencies** | **None (pure Go stdlib)** |
+
+### Feature Comparison
+
+| Feature | Heimsense | Python proxies | Rust proxy | Node.js adapter |
+|---------|-----------|---------------|------------|-----------------|
+| Single binary deployment | ✅ | ❌ (needs runtime) | ✅ | ❌ (needs runtime) |
+| Zero dependencies | ✅ | ❌ | ✅ | ❌ |
+| Streaming (SSE) | ✅ | ✅ | ✅ | ✅ |
+| Tool calling / function calling | ✅ | ✅ | ✅ | ✅ |
+| Retry with backoff | ✅ | Varies | ❌ | ❌ |
+| Container image size | ~15 MB | 100+ MB | ~10 MB | 150+ MB |
+| One-line install script | ✅ | ❌ | ❌ | ❌ |
+| Auto Claude Code setup | ✅ | Varies | ❌ | ✅ |
+| Structured JSON logging | ✅ | Varies | ✅ | ❌ |
+| Health check endpoint | ✅ | ❌ | ❌ | ❌ |
+| Model force override | ✅ | ❌ | ❌ | ❌ |
+| Auth header passthrough | ✅ | ✅ | ✅ | ✅ |
+| Codebase size | ~700 lines | 1000+ lines | 500+ lines | 800+ lines |
+| Easy to read & contribute | ✅ (Go) | ✅ (Python) | ⚠️ (Rust) | ✅ (JS) |
+
+### When to Use Heimsense
+
+Heimsense is the best choice when you want:
+
+- **Minimal footprint** — A single binary with no runtime dependencies (no Python, Node, or Rust toolchain needed)
+- **Fast deployment** — Download, configure, run. One-line install or copy the binary
+- **Tiny containers** — ~15 MB container image, ideal for resource-constrained environments
+- **Readable codebase** — ~700 lines of straightforward Go, easy to audit, fork, and extend
+- **Production-ready defaults** — Built-in retry, graceful shutdown, structured logging, and health checks out of the box
+
+### When to Use Alternatives
+
+- **100+ provider support** — If you need routing to obscure providers, LiteLLM-based proxies have wider coverage
+- **Python ecosystem** — If your team is Python-first and prefers `pip install` workflows
+- **Maximum performance** — The Rust proxy (`anthropic-proxy-rs`) may have slightly lower latency for extremely high-throughput use cases
+- **Interactive setup wizard** — `claude-adapter` provides a guided CLI experience for first-time configuration
+
+### Design Philosophy
+
+Heimsense follows the Unix philosophy: **do one thing well**.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    Design Principles                     │
+├──────────────────────────────────────────────────────────┤
+│  • Zero external dependencies (pure Go standard library) │
+│  • Single responsibility (Anthropic ↔ OpenAI, nothing   │
+│    else)                                                 │
+│  • Convention over configuration (sensible defaults)     │
+│  • Transparency (structured logs for every request)      │
+│  • Resilience (retry, backoff, graceful shutdown)        │
+└──────────────────────────────────────────────────────────┘
+```
+
+The entire adapter is ~700 lines of Go. There is no framework, no ORM, no dependency injection, no magic. Every line serves the core mission: **translate Anthropic requests to OpenAI format and back, reliably.**
 
 ---
 
