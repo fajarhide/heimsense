@@ -99,13 +99,25 @@ The ability to sense, route, and adapt API requests across the LLM multiverse.
 
 ### Architecture
 
-```
-┌─────────────────┐     ┌──────────────────────────────────────┐     ┌──────────────────┐
-│                 │     │             Heimsense                 │     │                  │
-│  Claude Code    │────►│  handler ──► adapter ──► client       │────►│  LLM Provider    │
-│  (Anthropic)    │◄────│  (parse)    (transform)  (HTTP+retry) │◄────│  (OpenAI format) │
-│                 │     │                                      │     │                  │
-└─────────────────┘     └──────────────────────────────────────┘     └──────────────────┘
+```mermaid
+graph LR
+    subgraph Client
+        CC["🖥️ Claude Code<br/><small>Anthropic format</small>"]
+    end
+
+    subgraph Heimsense
+        direction LR
+        H["Handler<br/><small>parse & validate</small>"] --> A["Adapter<br/><small>transform</small>"] --> C["Client<br/><small>HTTP + retry</small>"]
+    end
+
+    subgraph Upstream
+        LP["🤖 LLM Provider<br/><small>OpenAI format</small>"]
+    end
+
+    CC -- "POST /v1/messages<br/><small>Anthropic request</small>" --> H
+    C -- "/v1/chat/completions<br/><small>OpenAI request</small>" --> LP
+    LP -- "OpenAI response" --> C
+    C -- "Anthropic response" --> CC
 ```
 
 ### Request Flow
@@ -174,6 +186,10 @@ make setup
 
 # 4. Run Claude Code
 claude
+
+# 5. Select Model (inside Claude)
+/model
+# Select your custom model (e.g., Heimsense Model)
 ```
 
 ### Option 2: Podman
@@ -192,6 +208,10 @@ make setup
 
 # 4. Run Claude Code
 claude
+
+# 5. Select Model (inside Claude)
+/model
+# Select your custom model (e.g., Heimsense Model)
 ```
 
 ### Option 3: Docker
@@ -209,6 +229,10 @@ make setup
 
 # 4. Run Claude Code
 claude
+
+# 5. Select Model (inside Claude)
+/model
+# Select your custom model (e.g., Heimsense Model)
 ```
 
 ---
@@ -221,8 +245,9 @@ All configuration via environment variables (or `.env` file):
 |----------|---------|-------------|
 | `ANTHROPIC_BASE_URL` | `https://api.openai.com/v1` | Upstream OpenAI-compatible API |
 | `ANTHROPIC_API_KEY` | — | Fallback API key for upstream |
-| `DEFAULT_MODEL` | — | Default model if not specified |
-| `FORCE_MODEL` | — | Force all requests to this model |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION  ` | — | Default model if not specified |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION_NAME` | — | Default model if not specified |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION` | — | Default model if not specified |
 | `LISTEN_ADDR` | `:8080` | Server listen address |
 | `REQUEST_TIMEOUT_MS` | `120000` | Upstream timeout (ms) |
 | `MAX_RETRIES` | `3` | Retry attempts on 5xx errors |
