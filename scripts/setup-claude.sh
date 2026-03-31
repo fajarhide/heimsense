@@ -4,7 +4,7 @@ set -euo pipefail
 SETTINGS_FILE="$HOME/.claude/settings.json"
 # Variables from environment (passed via Makefile or sourced)
 ADAPTER_URL="${ADAPTER_URL:-http://localhost:8080}"
-CUSTOM_MODEL_ID="${ANTHROPIC_CUSTOM_MODEL_OPTION:-glm-5.1}"
+CUSTOM_MODEL_ID="${ANTHROPIC_CUSTOM_MODEL_OPTION:-gpt-5.1}"
 CUSTOM_MODEL_NAME="${ANTHROPIC_CUSTOM_MODEL_OPTION_NAME:-Heimsense Custom Model}"
 CUSTOM_MODEL_DESC="${ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION:-Custom model via Heimsense adapter}"
 

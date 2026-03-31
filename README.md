@@ -171,7 +171,31 @@ graph LR
 
 ## Quick Start
 
-### Option 1: Native Go
+### Option 1: One-Line Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/fajarhide/heimsense/main/scripts/install.sh | bash
+```
+
+This will:
+1. Auto-detect your OS & architecture
+2. Download the latest binary from GitHub Releases
+3. Install to `~/.local/bin/`
+4. Configure Claude Code settings (prompts for API key)
+
+Then start Heimsense and run Claude:
+
+```bash
+heimsense
+
+# In another terminal:
+claude
+# Inside Claude → /model → select Heimsense Custom Model
+```
+
+Config is saved to `~/.heimsense/.env` — edit it anytime to change provider, key, or model.
+
+### Option 2: Native Go
 
 ```bash
 # 1. Setup environment
@@ -257,8 +281,8 @@ All configuration via environment variables (or `.env` file):
 ```bash
 ANTHROPIC_BASE_URL=https://api.openai.com/v1
 ANTHROPIC_API_KEY=sk-your-api-key-here
-DEFAULT_MODEL=glm-5
-FORCE_MODEL=
+ANTHROPIC_CUSTOM_MODEL_OPTION=gpt-5.1
+ANTHROPIC_CUSTOM_FORCE_MODEL=
 LISTEN_ADDR=:8080
 REQUEST_TIMEOUT_MS=120000
 MAX_RETRIES=3
@@ -451,7 +475,7 @@ curl -X POST http://localhost:8080/v1/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-key" \
   -d '{
-    "model": "glm-5",
+    "model": "gpt-5.1",
     "max_tokens": 1024,
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
@@ -464,7 +488,7 @@ curl -X POST http://localhost:8080/v1/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-key" \
   -d '{
-    "model": "glm-5",
+    "model": "gpt-5.1",
     "max_tokens": 1024,
     "stream": true,
     "messages": [{"role": "user", "content": "Tell me a story"}]
@@ -478,7 +502,7 @@ curl -X POST http://localhost:8080/v1/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-key" \
   -d '{
-    "model": "glm-5",
+    "model": "gpt-5.1",
     "max_tokens": 1024,
     "tools": [{
       "name": "get_weather",

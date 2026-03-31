@@ -32,13 +32,16 @@ type Config struct {
 }
 
 // Load reads configuration from environment variables with sensible defaults.
+// It first loads ~/.heimsense/.env if present (shell env vars take precedence).
 func Load() (*Config, error) {
+	LoadDotEnv()
+
 	cfg := &Config{
 		ListenAddr:     envOrDefault("LISTEN_ADDR", ":8080"),
 		UpstreamBaseURL: envOrDefault("ANTHROPIC_BASE_URL", "https://api.openai.com/v1"),
 		APIKey:         os.Getenv("ANTHROPIC_API_KEY"),
-		DefaultModel:   envOrDefault("DEFAULT_MODEL", ""),
-		ForceModel:     envOrDefault("FORCE_MODEL", ""),
+		DefaultModel:   envOrDefault("ANTHROPIC_CUSTOM_MODEL_OPTION", ""),
+		ForceModel:     envOrDefault("ANTHROPIC_CUSTOM_FORCE_MODEL", ""),
 		MaxRetries:     3,
 	}
 
