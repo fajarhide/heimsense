@@ -18,13 +18,23 @@
   <a href="https://github.com/fajarhide/heimsense/pulls"><img src="https://img.shields.io/github/last-commit/fajarhide/heimsense.svg" alt="Last Commit"/></a>
 </p>
 
-> *"Like Heimdall's supernatural senses that perceive everything across the nine realms, Heimsense bridges your Claude CLI to any LLM provider."*
+> *Claude Code is the supercar. Heimsense gives any LLM the keys.* 🔱
 
-A lightweight, production-ready API adapter that enables **Claude Code CLI** (and any Anthropic-compatible client) to work with OpenAI-compatible backends.
+A lightweight, production-ready API adapter that gives **any LLM provider** the power of **Claude Code CLI** — by translating Anthropic's protocol to OpenAI's, and back. Zero dependencies. Single binary.
 
 ```
-Claude Code CLI ──► Heimsense (:8080) ──► Any LLM Provider
-  Anthropic format      translates          OpenAI format
+                          Heimsense
+                       ┌─────────────┐
+  Claude Code CLI ────►│  translates │────► Any LLM Provider
+  (Anthropic format)   │  both ways  │      (OpenAI format)
+                  ◄────│   :8080     │◄────
+                       └─────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+           OpenAI          DeepSeek         Ollama
+           Groq            Mistral        LM Studio
+           xAI             Together       vLLM  ...
 ```
 
 ---
@@ -37,14 +47,21 @@ In Norse mythology, **Heimdall** is the guardian of Bifröst — the rainbow bri
 
 ### The Philosophy
 
-Just as Heimdall stands at the gateway between realms, **Heimsense** sits between your Anthropic-compatible applications and the vast landscape of LLM providers:
+**Claude Code is a supercar.** It's one of the most powerful agentic coding tools ever built — autonomous file editing, multi-step reasoning, tool orchestration, and deep codebase understanding. But out of the box, only one engine fits: Claude.
+
+**Any LLM is a capable driver.** GPT, DeepSeek, Gemini, Llama, Qwen — they're all skilled, but they can't get behind the wheel of that supercar. The interface doesn't fit. The protocol doesn't match.
+
+**Heimsense gives any LLM the keys.** It translates the language barrier between Anthropic's protocol and OpenAI's protocol, so any model can drive the most powerful coding CLI available — unlocking capabilities they could never access alone.
+
+Just as Heimdall stands at the gateway of Bifröst, deciding who may cross between realms, **Heimsense** stands at the gateway between Claude Code and the vast landscape of LLM providers — letting any worthy model cross the bridge:
 
 | Heimdall | Heimsense |
 |----------|-----------|
 | Guards Bifröst (the bridge) | Guards your API gateway |
-| Sees across all nine realms | Connects to multiple LLM providers |
+| Lets worthy beings cross realms | Lets any LLM drive Claude Code |
+| Sees across all nine realms | Connects to 20+ LLM providers |
 | Never sleeps | Always-on, production-ready |
-| Heightened senses | Intelligent request routing |
+| Heightened senses | Intelligent request translation |
 | Warns of threats | Handles errors gracefully with retries |
 
 ### The Name
@@ -99,23 +116,90 @@ The ability to sense, route, and adapt API requests across the LLM multiverse.
 
 ### Architecture
 
-```
-┌─────────────────┐     ┌──────────────────────────────────────┐     ┌──────────────────┐
-│                 │     │             Heimsense                 │     │                  │
-│  Claude Code    │────►│  handler ──► adapter ──► client       │────►│  LLM Provider    │
-│  (Anthropic)    │◄────│  (parse)    (transform)  (HTTP+retry) │◄────│  (OpenAI format) │
-│                 │     │                                      │     │                  │
-└─────────────────┘     └──────────────────────────────────────┘     └──────────────────┘
+```mermaid
+graph LR
+    subgraph Client
+        CC["Claude Code<br/><small>Anthropic format</small>"]
+    end
+
+    subgraph Heimsense
+        direction TB
+        CFG["Config<br/><small>env / .env loader</small>"]
+        H["Handler<br/><small>parse & validate</small>"]
+        A["Adapter<br/><small>transform</small>"]
+        CL["Client<br/><small>HTTP + retry</small>"]
+        CFG -.-> H
+        CFG -.-> CL
+        H --> A --> CL
+    end
+
+    subgraph Upstream
+        LP["LLM Provider<br/><small>OpenAI format</small>"]
+    end
+
+    CC -- "POST /v1/messages<br/><small>Anthropic request</small>" --> H
+    CL -- "/v1/chat/completions<br/><small>OpenAI request</small>" --> LP
+    LP -. "OpenAI response" .-> CL
+    CL -. "Anthropic response" .-> CC
 ```
 
 ### Request Flow
 
+```mermaid
+sequenceDiagram
+    participant CC as Claude Code CLI
+    participant H as Handler
+    participant A as Adapter
+    participant CL as Client
+    participant UP as LLM Provider
+
+    CC->>H: POST /v1/messages (Anthropic)
+    H->>H: Validate (method, JSON, messages, max_tokens)
+    H->>A: ToOpenAIRequest(req, defaultModel, forceModel)
+    A-->>H: OpenAIRequest
+
+    alt Non-Streaming
+        H->>CL: ChatCompletion()
+        CL->>UP: POST /chat/completions (stream=false)
+        UP-->>CL: OpenAIResponse (JSON)
+        CL-->>H: OpenAIResponse
+        H->>A: ToAnthropicResponse()
+        A-->>H: AnthropicResponse
+        H-->>CC: JSON response
+    else Streaming (SSE)
+        H->>CL: ChatCompletionStream()
+        CL->>UP: POST /chat/completions (stream=true)
+        UP-->>CL: SSE stream (data: chunks)
+        loop Each SSE chunk
+            CL-->>H: OpenAI chunk
+            H->>H: Translate to Anthropic SSE events
+            H-->>CC: event: content_block_delta
+        end
+        H-->>CC: event: message_stop
+    end
+```
+
+### Model Resolution
+
+```mermaid
+flowchart TD
+    A["Incoming request"] --> B{ForceModel set?}
+    B -- Yes --> C["Use ForceModel<br/><small>always override</small>"]
+    B -- No --> D{Request has model?}
+    D -- Yes --> E["Use request model<br/><small>from client</small>"]
+    D -- No --> F{DefaultModel set?}
+    F -- Yes --> G["Use DefaultModel<br/><small>fallback</small>"]
+    F -- No --> H["Empty<br/><small>upstream decides</small>"]
+```
+
+### Steps
+
 1. **Receive** — Claude Code sends Anthropic-format request to `/v1/messages`
-2. **Parse** — Handler validates and extracts request components
-3. **Transform** — Adapter converts Anthropic schema → OpenAI schema
-4. **Forward** — Client sends to upstream with retry logic
+2. **Validate** — Handler checks method, JSON body, required fields
+3. **Transform** — Adapter converts Anthropic schema → OpenAI schema (with model resolution)
+4. **Forward** — Client sends to upstream with retry logic (exponential backoff on 5xx)
 5. **Adapt** — Response transformed back to Anthropic format
-6. **Return** — Claude Code receives expected response
+6. **Return** — Claude Code receives expected Anthropic response
 
 ### Translation Layer
 
@@ -159,7 +243,31 @@ The ability to sense, route, and adapt API requests across the LLM multiverse.
 
 ## Quick Start
 
-### Option 1: Native Go
+### Option 1: One-Line Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/fajarhide/heimsense/main/scripts/install.sh | bash
+```
+
+This will:
+1. Auto-detect your OS & architecture
+2. Download the latest binary from GitHub Releases
+3. Install to `~/.local/bin/`
+4. Configure Claude Code settings (prompts for API key)
+
+Then start Heimsense and run Claude:
+
+```bash
+heimsense
+
+# In another terminal:
+claude
+# Inside Claude → /model → select Heimsense Custom Model
+```
+
+Config is saved to `~/.heimsense/.env` — edit it anytime to change provider, key, or model.
+
+### Option 2: Native Go
 
 ```bash
 # 1. Setup environment
@@ -174,6 +282,10 @@ make setup
 
 # 4. Run Claude Code
 claude
+
+# 5. Select Model (inside Claude)
+/model
+# Select your custom model (e.g., Heimsense Model)
 ```
 
 ### Option 2: Podman
@@ -192,6 +304,10 @@ make setup
 
 # 4. Run Claude Code
 claude
+
+# 5. Select Model (inside Claude)
+/model
+# Select your custom model (e.g., Heimsense Model)
 ```
 
 ### Option 3: Docker
@@ -209,6 +325,10 @@ make setup
 
 # 4. Run Claude Code
 claude
+
+# 5. Select Model (inside Claude)
+/model
+# Select your custom model (e.g., Heimsense Model)
 ```
 
 ---
@@ -221,8 +341,10 @@ All configuration via environment variables (or `.env` file):
 |----------|---------|-------------|
 | `ANTHROPIC_BASE_URL` | `https://api.openai.com/v1` | Upstream OpenAI-compatible API |
 | `ANTHROPIC_API_KEY` | — | Fallback API key for upstream |
-| `DEFAULT_MODEL` | — | Default model if not specified |
-| `FORCE_MODEL` | — | Force all requests to this model |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION` | — | Default model if request doesn't specify one |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION_NAME` | — | Display name in Claude Code `/model` menu |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION` | — | Description shown in Claude Code `/model` menu |
+| `ANTHROPIC_CUSTOM_FORCE_MODEL` | — | Force all requests to use this model (overrides client) |
 | `LISTEN_ADDR` | `:8080` | Server listen address |
 | `REQUEST_TIMEOUT_MS` | `120000` | Upstream timeout (ms) |
 | `MAX_RETRIES` | `3` | Retry attempts on 5xx errors |
@@ -232,8 +354,8 @@ All configuration via environment variables (or `.env` file):
 ```bash
 ANTHROPIC_BASE_URL=https://api.openai.com/v1
 ANTHROPIC_API_KEY=sk-your-api-key-here
-DEFAULT_MODEL=glm-5
-FORCE_MODEL=
+ANTHROPIC_CUSTOM_MODEL_OPTION=gpt-5.1
+ANTHROPIC_CUSTOM_FORCE_MODEL=
 LISTEN_ADDR=:8080
 REQUEST_TIMEOUT_MS=120000
 MAX_RETRIES=3
@@ -426,7 +548,7 @@ curl -X POST http://localhost:8080/v1/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-key" \
   -d '{
-    "model": "glm-5",
+    "model": "gpt-5.1",
     "max_tokens": 1024,
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
@@ -439,7 +561,7 @@ curl -X POST http://localhost:8080/v1/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-key" \
   -d '{
-    "model": "glm-5",
+    "model": "gpt-5.1",
     "max_tokens": 1024,
     "stream": true,
     "messages": [{"role": "user", "content": "Tell me a story"}]
@@ -453,7 +575,7 @@ curl -X POST http://localhost:8080/v1/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-key" \
   -d '{
-    "model": "glm-5",
+    "model": "gpt-5.1",
     "max_tokens": 1024,
     "tools": [{
       "name": "get_weather",
@@ -520,15 +642,24 @@ message_start → content_block_start
 ```
 heimsense/
 ├── .github/workflows/              # CI, Release, Docker
-├── cmd/server/main.go              # Entry point
+├── cmd/server/main.go              # Entry point + logging middleware
 ├── internal/
-│   ├── adapter/transform.go        # Format transformation
-│   ├── client/openai.go            # HTTP client + retry
-│   ├── config/config.go            # Config loader
+│   ├── adapter/
+│   │   ├── transform.go            # Anthropic ↔ OpenAI transformation
+│   │   └── transform_test.go       # Adapter tests
+│   ├── client/
+│   │   ├── openai.go               # HTTP client + retry
+│   │   └── openai_test.go          # Client tests
+│   ├── config/
+│   │   ├── config.go               # Config loader
+│   │   ├── config_test.go          # Config tests
+│   │   └── dotenv.go               # .env file parser
 │   └── handler/
-│       ├── messages.go             # Request handler
-│       └── messages_test.go        # Tests
-├── scripts/setup-claude.sh         # Claude Code setup
+│       ├── messages.go             # Request handler + SSE streaming
+│       └── messages_test.go        # Handler tests
+├── scripts/
+│   ├── install.sh                  # One-line installer
+│   └── setup-claude.sh             # Claude Code setup
 ├── Containerfile                   # Container build
 ├── docker-compose.yaml             # Compose config
 ├── Makefile                        # Build targets
@@ -587,10 +718,81 @@ make docker-logs
 
 ---
 
+## Comparison with Alternatives
+
+Several open-source projects solve the same problem — bridging Claude Code CLI to non-Anthropic providers. Here's how Heimsense compares:
+
+### Similar Projects
+
+| Project | Language | Approach | Dependencies |
+|---------|----------|----------|-------------|
+| [claude-code-proxy](https://github.com/fuergaosi233/claude-code-proxy) (fuergaosi233) | Python | Full-featured proxy with model mapping | Python runtime, pip packages |
+| [claude-code-proxy](https://github.com/1rgs/claude-code-proxy) (1rgs) | Python | LiteLLM-powered, supports 100+ providers | Python, LiteLLM, many transitive deps |
+| [anthropic-proxy-rs](https://github.com/m0n0x41d/anthropic-proxy-rs) | Rust | High-performance binary | Rust toolchain to build |
+| [claude-adapter](https://github.com/shantoislamdev/claude-adapter) | Node.js | Interactive CLI wizard for setup | Node.js runtime, npm packages |
+| **Heimsense** | **Go** | **Single binary, zero runtime dependencies** | **None (pure Go stdlib)** |
+
+### Feature Comparison
+
+| Feature | Heimsense | Python proxies | Rust proxy | Node.js adapter |
+|---------|-----------|---------------|------------|-----------------|
+| Single binary deployment | ✅ | ❌ (needs runtime) | ✅ | ❌ (needs runtime) |
+| Zero dependencies | ✅ | ❌ | ✅ | ❌ |
+| Streaming (SSE) | ✅ | ✅ | ✅ | ✅ |
+| Tool calling / function calling | ✅ | ✅ | ✅ | ✅ |
+| Retry with backoff | ✅ | Varies | ❌ | ❌ |
+| Container image size | ~15 MB | 100+ MB | ~10 MB | 150+ MB |
+| One-line install script | ✅ | ❌ | ❌ | ❌ |
+| Auto Claude Code setup | ✅ | Varies | ❌ | ✅ |
+| Structured JSON logging | ✅ | Varies | ✅ | ❌ |
+| Health check endpoint | ✅ | ❌ | ❌ | ❌ |
+| Model force override | ✅ | ❌ | ❌ | ❌ |
+| Auth header passthrough | ✅ | ✅ | ✅ | ✅ |
+| Codebase size | ~700 lines | 1000+ lines | 500+ lines | 800+ lines |
+| Easy to read & contribute | ✅ (Go) | ✅ (Python) | ⚠️ (Rust) | ✅ (JS) |
+
+### When to Use Heimsense
+
+Heimsense is the best choice when you want:
+
+- **Minimal footprint** — A single binary with no runtime dependencies (no Python, Node, or Rust toolchain needed)
+- **Fast deployment** — Download, configure, run. One-line install or copy the binary
+- **Tiny containers** — ~15 MB container image, ideal for resource-constrained environments
+- **Readable codebase** — ~700 lines of straightforward Go, easy to audit, fork, and extend
+- **Production-ready defaults** — Built-in retry, graceful shutdown, structured logging, and health checks out of the box
+
+### When to Use Alternatives
+
+- **100+ provider support** — If you need routing to obscure providers, LiteLLM-based proxies have wider coverage
+- **Python ecosystem** — If your team is Python-first and prefers `pip install` workflows
+- **Maximum performance** — The Rust proxy (`anthropic-proxy-rs`) may have slightly lower latency for extremely high-throughput use cases
+- **Interactive setup wizard** — `claude-adapter` provides a guided CLI experience for first-time configuration
+
+### Design Philosophy
+
+Heimsense follows the Unix philosophy: **do one thing well**.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    Design Principles                     │
+├──────────────────────────────────────────────────────────┤
+│  • Zero external dependencies (pure Go standard library) │
+│  • Single responsibility (Anthropic ↔ OpenAI, nothing   │
+│    else)                                                 │
+│  • Convention over configuration (sensible defaults)     │
+│  • Transparency (structured logs for every request)      │
+│  • Resilience (retry, backoff, graceful shutdown)        │
+└──────────────────────────────────────────────────────────┘
+```
+
+The entire adapter is ~700 lines of Go. There is no framework, no ORM, no dependency injection, no magic. Every line serves the core mission: **translate Anthropic requests to OpenAI format and back, reliably.**
+
+---
+
 ## License
 
 MIT
 
 ---
 
-> *"Heimdall, guardian of the gods, will rise and sound the Gjallarhorn..."* — Now he guards your API gateway.
+> *"Heimdall guards the Bifröst, so that any worthy being may cross between realms."* — Heimsense guards your API, so that any LLM may drive Claude Code. 🔱
