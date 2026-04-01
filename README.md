@@ -1,10 +1,10 @@
-# Heimsense 🔱
+# Heimsense
 
 <p align="center">
   <a href="https://github.com/fajarhide/heimsense/stargazers"><img src="https://img.shields.io/github/stars/fajarhide/heimsense?style=for-the-badge" alt="Stars"/></a>
   <a href="https://github.com/fajarhide/heimsense/releases"><img src="https://img.shields.io/badge/Updated-Mar_31,_2026-brightgreen?style=for-the-badge" alt="Last Update"/></a>
   <a href="./go.mod"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go Version"/></a>
-  <a href="#-supported-providers"><img src="https://img.shields.io/badge/Providers-20+-orange?style=for-the-badge" alt="Supported Providers"/></a>
+  <a href="#supported-providers"><img src="https://img.shields.io/badge/Providers-20+-orange?style=for-the-badge" alt="Supported Providers"/></a>
   <a href="./Containerfile"><img src="https://img.shields.io/badge/Container-ready-blueviolet?style=for-the-badge&logo=podman&logoColor=white" alt="Container Ready"/></a>
   <a href="https://github.com/fajarhide/heimsense/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/fajarhide/heimsense/ci.yml?style=for-the-badge&label=CI" alt="CI"/></a>
   <a href="https://github.com/fajarhide/heimsense/releases/latest"><img src="https://img.shields.io/github/release/fajarhide/heimsense?style=for-the-badge" alt="Release Version"/></a>
@@ -16,145 +16,152 @@
   <a href="https://github.com/fajarhide/heimsense/pulls"><img src="https://img.shields.io/github/last-commit/fajarhide/heimsense.svg" alt="Last Commit"/></a>
 </p>
 
-> *Claude Code is the supercar. Heimsense unlocks it for any LLM.*
+Heimsense is a lightweight, production-ready API adapter that enables the use of the Claude Code CLI with any LLM provider, such as OpenAI, DeepSeek, Groq, or local models. It functions by translating Anthropic's API protocol to the OpenAI format and vice-versa. 
 
-A lightweight, production-ready API adapter that unlocks **Claude Code CLI** for **any LLM provider** (OpenAI, DeepSeek, Groq, local models) by translating Anthropic's protocol to OpenAI's, and back. **Zero Python/Node dependencies. Single binary.**
+Delivered as a single compiled Go binary, Heimsense eliminates the need for Python or Node.js runtime environments.
 
 ```text
   Claude Code CLI ────► [ Heimsense ] ────► Any LLM Provider
  (Anthropic format)     [ :8080     ]       (OpenAI format)
 ```
 
-## ✨ Features & Benefits
+## Features
 
-* **Use Any Model:** DeepSeek for cheap coding, ChatGPT, Groq for speed, or local Ollama.
-* **Cost Savings:** Pay a fraction of Anthropic's pricing.
-* **Zero Dependencies:** Single Go binary. No Python, no Node.js.
-* **Production Ready:** Auto-retries on 5xx errors, graceful shutdown, health checks.
-* **Auto Setup:** Interactive CLI wizard configures Claude Code for you automatically.
+* **Provider Flexibility:** Compatible with various models including DeepSeek, ChatGPT, Groq, or local options like Ollama.
+* **Cost Efficiency:** Allows utilization of more cost-effective models as alternatives to Anthropic's pricing.
+* **Zero Dependencies:** Distributed as a single Go binary. No external runtime environments required.
+* **Production Ready:** Includes automatic retries on 5xx errors, graceful shutdown, and health check endpoints.
+* **Automated Setup:** Features an interactive CLI to automatically configure Claude Code.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### 1. Install Heimsense
-Use the one-line installer (auto-detects OS & installs to `~/.local/bin/`):
+### 1. Installation
+
+Execute the installation script to download the appropriate binary for your operating system to `~/.local/bin/`:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fajarhide/heimsense/main/scripts/install.sh | bash
 ```
-*(Alternatively, download the binary from [Releases](https://github.com/fajarhide/heimsense/releases) or build it yourself using `make build`)*
 
-### 2. Configure & Run
-Run the interactive setup. It will ask for your API key and automatically configure Claude Code:
+Alternatively, pre-compiled binaries are available on the [Releases](https://github.com/fajarhide/heimsense/releases) page, or it can be built from source using `make build`.
+
+### 2. Configuration & Execution
+
+Run the interactive setup. This process prompts for your target API key and configures the Claude Code CLI:
+
 ```bash
 heimsense setup
 ```
 
-Then, start the Heimsense server:
+Start the Heimsense server:
+
 ```bash
 heimsense run
 ```
 
-### 3. Use in Claude Code
-In a new terminal, open Claude Code:
+### 3. Usage with Claude Code
+
+Open a new terminal session and launch Claude Code:
+
 ```bash
 claude
-# Once inside, type /model and select "Heimsense Custom Model"
+# Use the /model command and select "Heimsense Custom Model"
 ```
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-Heimsense uses `~/.heimsense/.env` for configuration. You can edit this file to change your provider or model at any time.
+Configuration is managed via the `~/.heimsense/.env` file. Modify these variables to adjust your provider or model settings.
 
 | Variable | Example | Description |
 |----------|---------|-------------|
-| `ANTHROPIC_BASE_URL` | `https://api.openai.com/v1` | Upstream API URL |
-| `ANTHROPIC_API_KEY` | `sk-...` | Your API key |
-| `ANTHROPIC_CUSTOM_MODEL_OPTION` | `gpt-4o` | Default model used if none is specified or mapped |
-| `MODEL_MAP_HAIKU` | `gemini-2.5-flash` | (Optional) Maps background Claude Haiku requests |
-| `MODEL_MAP_SONNET` | `gemini-2.5-pro` | (Optional) Maps background Claude Sonnet requests |
-| `MODEL_MAP_OPUS` | `gemini-2.5-pro` | (Optional) Maps background Claude Opus requests |
-| `LISTEN_ADDR` | `:8080` | Local server port |
+| `ANTHROPIC_BASE_URL` | `https://api.openai.com/v1` | Target LLM provider API URL |
+| `ANTHROPIC_API_KEY` | `sk-...` | Authentication token for the upstream API |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION` | `gpt-4o` | Default model when none is specified or mapped |
+| `MODEL_MAP_HAIKU` | `gemini-2.5-flash` | (Optional) Redirection for Claude Haiku requests |
+| `MODEL_MAP_SONNET` | `gemini-2.5-pro` | (Optional) Redirection for Claude Sonnet requests |
+| `MODEL_MAP_OPUS` | `gemini-2.5-pro` | (Optional) Redirection for Claude Opus requests |
+| `LISTEN_ADDR` | `:8080` | Local server listening address and port |
 
-*Tip: If you manually change the port in `.env`, run `heimsense sync` to update Claude Code's settings.*
+*Note: After making manual changes to the `.env` file, execute `heimsense sync` to propagate the updates to Claude Code's configuration.*
 
 ---
 
-## 🐳 Docker / Podman
+## Container Deployment
 
-If you prefer containers, Heimsense is available as a lightweight ~15MB image.
+Heimsense is distributed as a compact container image (~15MB) for environments utilizing Docker or Podman.
 
 ```bash
 # 1. Prepare configuration
 cp env.example .env
-nano .env # Add your API key and Base URL
+# Edit .env to set your target API key and Base URL
 
-# 2. Run with Docker
+# 2. Start the container
 docker run -d \
   --name heimsense \
   -p 8080:8080 \
   -v $(pwd)/.env:/.env \
   ghcr.io/fajarhide/heimsense:latest
 
-# 3. Setup Claude Code locally
+# 3. Configure local Claude Code instance
 heimsense setup
 ```
-*(For Podman, just replace `docker` with `podman`)*
 
 ---
 
-## 🧩 Supported Providers
+## Supported Providers
 
-Heimsense works flawlessly with **any** OpenAI-compatible API:
+Heimsense is compatible with endpoints adhering to the OpenAI API specification, including:
 
-* **Cloud Providers:** OpenAI, DeepSeek, Groq, Together AI, Mistral, xAI (Grok), OpenRouter, Fireworks AI.
-* **Local / Self-Hosted:** Ollama, LM Studio, vLLM, LocalAI.
-
----
-
-## 🧠 How It Works
-
-Heimsense acts as a transparent reverse proxy between Claude Code and your LLM of choice.
-
-1. Claude Code sends a request in **Anthropic format** (`/v1/messages`).
-2. Heimsense translates the payload to **OpenAI format** (`/v1/chat/completions`).
-3. Your chosen LLM provider responds.
-4. Heimsense translates the response (including SSE stream and tool/function calls) back to the Anthropic format expected by Claude Code.
+* **Cloud Services:** OpenAI, DeepSeek, Groq, Together AI, Mistral, xAI (Grok), OpenRouter, Fireworks AI.
+* **Local Implementations:** Ollama, LM Studio, vLLM, LocalAI.
 
 ---
 
-## 🆚 Why Heimsense? (vs Alternatives)
+## Architecture Overview
 
-While there are Python and Node.js proxies available, Heimsense is built in Go for maximum simplicity:
+Heimsense operates as a translation proxy layer between the Claude Code client and the target LLM API.
 
-* **No `pip install`, no `npm install`.** Just a single compiled binary.
-* **Extremely lightweight.** Uses <20MB of RAM.
-* **Built specifically for Claude Code.** Includes CLI commands (`setup`, `sync`, `run`) to automate configuration directly.
-* **Production-ready defaults.** Built-in retry with exponential backoff, graceful shutdown, structured logging, and health checks.
+1. The Claude Code client sends queries in the **Anthropic format** (`/v1/messages`).
+2. Heimsense transforms the request payload into the **OpenAI format** (`/v1/chat/completions`).
+3. The query is forwarded to the designated LLM provider.
+4. The provider's response, including SSE streams and tool/function calls, is translated back to the Anthropic format for consumption by the client.
 
 ---
 
-## 🛠️ Development & API Reference
+## Comparison: Why Heimsense
 
-If you want to contribute, build from source, or use the API manually:
+In contrast to similar tools built with Python or Node.js, Heimsense prioritizes simplicity and minimal footprint through its Go implementation:
+
+* **No package managers:** Bypasses `pip`, `npm`, or virtual environments in favor of a standalone binary.
+* **Minimal resource usage:** Typical RAM consumption is under 20MB.
+* **Integrated CLI:** Dedicated commands (`setup`, `sync`, `run`) streamline the configuration process for Claude Code.
+* **Reliability features:** Incorporates exponential backoff retries, graceful shutdown, structured logging, and health monitoring.
+
+---
+
+## Development & API Reference
+
+Standard development commands:
 
 ```bash
-make run        # Build + start server
-make test       # Run tests
-make build      # Compile to ./bin/
-make lint       # Code formatting and linting
+make run        # Build binary and start server
+make test       # Execute test suite
+make build      # Compile executable to ./bin/
+make lint       # Run code formatters and linters
 ```
 
 <details>
-<summary><strong>Click to view API details</strong></summary>
+<summary><strong>API Endpoints</strong></summary>
 
 ### `POST /v1/messages` 
 
-You can interact with Heimsense just like the official Anthropic API:
+This endpoint handles requests formatted according to the Anthropic API specification:
 
-**Streaming:**
+**Streaming Example:**
 ```bash
 curl -X POST http://localhost:8080/v1/messages \
   -H "Content-Type: application/json" \
@@ -163,11 +170,11 @@ curl -X POST http://localhost:8080/v1/messages \
     "model": "gpt-4o",
     "max_tokens": 1024,
     "stream": true,
-    "messages": [{"role": "user", "content": "Tell me a story about Heimdall."}]
+    "messages": [{"role": "user", "content": "Explain the concept of an API."}]
   }'
 ```
 
-*(Tool calling is fully supported)*
+*(Tool and function calling features are supported)*
 
 ### `GET /health`
 ```bash
@@ -177,6 +184,20 @@ curl http://localhost:8080/health
 
 </details>
 
+
+## Star History
+
+<p align="center">
+  <a href="https://star-history.com/#fajarhide/heimsense&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=fajarhide/heimsense&type=Date&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=fajarhide/heimsense&type=Date" />
+      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=fajarhide/heimsense&type=Date" width="600" />
+    </picture>
+  </a>
+</p>
+
 ---
-*Heimsense: Inspired by Heimdall, the guardian of the Bifröst bridge. Unlocking cross-realm AI capabilities.*  
+*Heimsense: Inspired by Heimdall, the guardian of the Bifröst bridge.*  
+**License:** [MIT](./LICENSE)m AI capabilities.*  
 **License:** [MIT](./LICENSE)
