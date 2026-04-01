@@ -72,7 +72,10 @@ Heimsense uses `~/.heimsense/.env` for configuration. You can edit this file to 
 |----------|---------|-------------|
 | `ANTHROPIC_BASE_URL` | `https://api.openai.com/v1` | Upstream API URL |
 | `ANTHROPIC_API_KEY` | `sk-...` | Your API key |
-| `ANTHROPIC_CUSTOM_MODEL_OPTION` | `gpt-4o` | Model used if none is specified |
+| `ANTHROPIC_CUSTOM_MODEL_OPTION` | `gpt-4o` | Default model used if none is specified or mapped |
+| `MODEL_MAP_HAIKU` | `gemini-2.5-flash` | (Optional) Maps background Claude Haiku requests |
+| `MODEL_MAP_SONNET` | `gemini-2.5-pro` | (Optional) Maps background Claude Sonnet requests |
+| `MODEL_MAP_OPUS` | `gemini-2.5-pro` | (Optional) Maps background Claude Opus requests |
 | `LISTEN_ADDR` | `:8080` | Local server port |
 
 *Tip: If you manually change the port in `.env`, run `heimsense sync` to update Claude Code's settings.*

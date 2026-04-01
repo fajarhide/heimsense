@@ -21,6 +21,8 @@ vendor/
 # Go workspace file
 go.work
 go.work.sum
+server
+heimsense
 
 # Environment files (contain secrets)
 .env

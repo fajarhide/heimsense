@@ -19,7 +19,7 @@ func TestToOpenAIRequest_BasicConversion(t *testing.T) {
 		},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 
 	if oai.Model != "claude-3" {
 		t.Errorf("Model = %q, want %q", oai.Model, "claude-3")
@@ -42,7 +42,7 @@ func TestToOpenAIRequest_DefaultModel(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: "hi"}},
 	}
 
-	oai := ToOpenAIRequest(req, "gpt-4-default", "")
+	oai, _ := ToOpenAIRequest(req, "gpt-4-default", "", nil)
 	if oai.Model != "gpt-4-default" {
 		t.Errorf("Model = %q, want %q", oai.Model, "gpt-4-default")
 	}
@@ -55,7 +55,7 @@ func TestToOpenAIRequest_ForceModelOverride(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: "hi"}},
 	}
 
-	oai := ToOpenAIRequest(req, "gpt-4-default", "gpt-4-forced")
+	oai, _ := ToOpenAIRequest(req, "gpt-4-default", "gpt-4-forced", nil)
 	if oai.Model != "gpt-4-forced" {
 		t.Errorf("Model = %q, want %q (force should override)", oai.Model, "gpt-4-forced")
 	}
@@ -68,7 +68,7 @@ func TestToOpenAIRequest_ForceModelOverridesDefault(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: "hi"}},
 	}
 
-	oai := ToOpenAIRequest(req, "gpt-4-default", "gpt-4-forced")
+	oai, _ := ToOpenAIRequest(req, "gpt-4-default", "gpt-4-forced", nil)
 	if oai.Model != "gpt-4-forced" {
 		t.Errorf("Model = %q, want %q (force takes priority over default)", oai.Model, "gpt-4-forced")
 	}
@@ -83,7 +83,7 @@ func TestToOpenAIRequest_SystemPromptString(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: "hi"}},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if len(oai.Messages) != 2 {
 		t.Fatalf("Messages length = %d, want 2 (system + user)", len(oai.Messages))
 	}
@@ -108,7 +108,7 @@ func TestToOpenAIRequest_SystemPromptArray(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: "hi"}},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if len(oai.Messages) < 1 {
 		t.Fatal("expected at least 1 message")
 	}
@@ -131,7 +131,7 @@ func TestToOpenAIRequest_TemperatureAndTopP(t *testing.T) {
 		Messages:    []AnthropicMessage{{Role: "user", Content: "hi"}},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if oai.Temperature == nil || *oai.Temperature != 0.7 {
 		t.Errorf("Temperature = %v, want 0.7", oai.Temperature)
 	}
@@ -148,7 +148,7 @@ func TestToOpenAIRequest_StopSequences(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: "hi"}},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if len(oai.Stop) != 2 || oai.Stop[0] != "STOP" || oai.Stop[1] != "END" {
 		t.Errorf("Stop = %v, want [STOP END]", oai.Stop)
 	}
@@ -162,7 +162,7 @@ func TestToOpenAIRequest_StreamFlag(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: "hi"}},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if !oai.Stream {
 		t.Error("Stream should be true")
 	}
@@ -187,7 +187,7 @@ func TestToOpenAIRequest_Tools(t *testing.T) {
 		},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if len(oai.Tools) != 1 {
 		t.Fatalf("Tools length = %d, want 1", len(oai.Tools))
 	}
@@ -214,7 +214,7 @@ func TestToOpenAIRequest_UserContentBlocks(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: content}},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if len(oai.Messages) != 1 {
 		t.Fatalf("Messages length = %d, want 1", len(oai.Messages))
 	}
@@ -239,7 +239,7 @@ func TestToOpenAIRequest_UserToolResult(t *testing.T) {
 		Messages:  []AnthropicMessage{{Role: "user", Content: content}},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 
 	// Expect: user(text), tool(result), user(text)
 	if len(oai.Messages) != 3 {
@@ -267,7 +267,7 @@ func TestToOpenAIRequest_AssistantStringContent(t *testing.T) {
 		},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if len(oai.Messages) != 2 {
 		t.Fatalf("Messages length = %d, want 2", len(oai.Messages))
 	}
@@ -295,7 +295,7 @@ func TestToOpenAIRequest_AssistantToolUse(t *testing.T) {
 		},
 	}
 
-	oai := ToOpenAIRequest(req, "", "")
+	oai, _ := ToOpenAIRequest(req, "", "", nil)
 	if len(oai.Messages) != 2 {
 		t.Fatalf("Messages length = %d, want 2", len(oai.Messages))
 	}
