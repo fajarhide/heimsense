@@ -199,5 +199,4 @@ curl http://localhost:8080/health
 
 ---
 *Heimsense: Inspired by Heimdall, the guardian of the Bifröst bridge.*  
-**License:** [MIT](./LICENSE)m AI capabilities.*  
 **License:** [MIT](./LICENSE)
