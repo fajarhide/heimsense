@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/fajarhide/heimsense/internal/config"
 )
 
 // --- Anthropic Request Types ---
@@ -173,10 +175,50 @@ type OpenAIUsage struct {
 
 // --- Transformation Functions ---
 
+// normalizeModel maps Anthropic model names to common upstream compatible names
+func normalizeModel(model string, forceModel string, cfg *config.Config) (string, error) {
+	// FORCE MODEL ALWAYS WINS. NO EXCEPTIONS.
+	if forceModel != "" {
+		return forceModel, nil
+	}
+
+	// Dynamic config mapping
+	if cfg != nil {
+		switch {
+		case strings.Contains(model, "haiku"):
+			if cfg.ModelMapHaiku != "" {
+				return cfg.ModelMapHaiku, nil
+			}
+		case strings.Contains(model, "sonnet"):
+			if cfg.ModelMapSonnet != "" {
+				return cfg.ModelMapSonnet, nil
+			}
+		case strings.Contains(model, "opus"):
+			if cfg.ModelMapOpus != "" {
+				return cfg.ModelMapOpus, nil
+			}
+		}
+
+		// If a matching model alias isn't defined, but the user HAS an Anthropic Custom Model (DefaultModel),
+		// we fallback to that custom model so they don't get 400 errors for unrecognized models.
+		if (strings.Contains(model, "haiku") || strings.Contains(model, "sonnet") || strings.Contains(model, "opus")) && cfg.DefaultModel != "" {
+			return cfg.DefaultModel, nil
+		}
+	}
+
+	// Default: pass through whatever model was requested
+	return model, nil
+}
+
 // ToOpenAIRequest converts an Anthropic request into an OpenAI chat completion request.
-func ToOpenAIRequest(req *AnthropicRequest, defaultModel, forceModel string) *OpenAIRequest {
+func ToOpenAIRequest(req *AnthropicRequest, defaultModel, forceModel string, cfg *config.Config) (*OpenAIRequest, error) {
+	model, err := normalizeModel(req.Model, forceModel, cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	oaiReq := &OpenAIRequest{
-		Model:       req.Model,
+		Model:       model,
 		Temperature: req.Temperature,
 		TopP:        req.TopP,
 		MaxTokens:   req.MaxTokens,
@@ -185,9 +227,9 @@ func ToOpenAIRequest(req *AnthropicRequest, defaultModel, forceModel string) *Op
 	}
 
 	if forceModel != "" {
-		oaiReq.Model = forceModel
+		oaiReq.Model, _ = normalizeModel(forceModel, "", cfg)
 	} else if oaiReq.Model == "" && defaultModel != "" {
-		oaiReq.Model = defaultModel
+		oaiReq.Model, _ = normalizeModel(defaultModel, "", cfg)
 	}
 
 	// Tools mapping
@@ -306,7 +348,7 @@ func ToOpenAIRequest(req *AnthropicRequest, defaultModel, forceModel string) *Op
 		}
 	}
 
-	return oaiReq
+	return oaiReq, nil
 }
 
 // ToAnthropicResponse converts an OpenAI response into an Anthropic response.

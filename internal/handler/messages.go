@@ -68,7 +68,12 @@ func (h *MessagesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Transform to OpenAI format.
-	oaiReq := adapter.ToOpenAIRequest(&req, h.cfg.DefaultModel, h.cfg.ForceModel)
+	oaiReq, err := adapter.ToOpenAIRequest(&req, h.cfg.DefaultModel, h.cfg.ForceModel, h.cfg)
+	if err != nil {
+		h.logger.Error("model validation failed", "error", err, "model", req.Model)
+		h.writeError(w, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return
+	}
 
 	if req.Stream {
 		h.handleStream(w, r, oaiReq, authHeader, start)

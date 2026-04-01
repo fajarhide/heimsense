@@ -282,6 +282,12 @@ ANTHROPIC_CUSTOM_MODEL_OPTION=%s
 ANTHROPIC_CUSTOM_MODEL_OPTION_NAME=%s
 ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION=%s
 
+# (Optional) Map Claude Code's hardcoded background models to your provider's cheaper models
+# If left empty, these will automatically fallback to your ANTHROPIC_CUSTOM_MODEL_OPTION above.
+# MODEL_MAP_HAIKU=gemini-2.5-flash
+# MODEL_MAP_SONNET=gemini-2.5-pro
+# MODEL_MAP_OPUS=gemini-2.5-pro
+
 LISTEN_ADDR=%s
 REQUEST_TIMEOUT_MS=120000
 MAX_RETRIES=3

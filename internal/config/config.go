@@ -24,11 +24,21 @@ type Config struct {
 	// ForceModel overrides the model requested by the client to be this model.
 	ForceModel string
 
+
 	// RequestTimeout is the maximum duration for upstream requests.
 	RequestTimeout time.Duration
 
 	// MaxRetries is the number of retry attempts for transient upstream failures.
 	MaxRetries int
+
+	// ModelMapHaiku overrides any Claude Haiku requests locally.
+	ModelMapHaiku string
+
+	// ModelMapSonnet overrides any Claude Sonnet requests locally.
+	ModelMapSonnet string
+
+	// ModelMapOpus overrides any Claude Opus requests locally.
+	ModelMapOpus string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -37,12 +47,15 @@ func Load() (*Config, error) {
 	LoadDotEnv()
 
 	cfg := &Config{
-		ListenAddr:     envOrDefault("LISTEN_ADDR", ":8080"),
+		ListenAddr:      envOrDefault("LISTEN_ADDR", ":8080"),
 		UpstreamBaseURL: envOrDefault("ANTHROPIC_BASE_URL", "https://api.openai.com/v1"),
-		APIKey:         os.Getenv("ANTHROPIC_API_KEY"),
-		DefaultModel:   envOrDefault("ANTHROPIC_CUSTOM_MODEL_OPTION", ""),
-		ForceModel:     envOrDefault("ANTHROPIC_CUSTOM_FORCE_MODEL", ""),
-		MaxRetries:     3,
+		APIKey:          os.Getenv("ANTHROPIC_API_KEY"),
+		DefaultModel:    envOrDefault("ANTHROPIC_CUSTOM_MODEL_OPTION", ""),
+		ForceModel:      envOrDefault("ANTHROPIC_CUSTOM_FORCE_MODEL", ""),
+		MaxRetries:      3,
+		ModelMapHaiku:   os.Getenv("MODEL_MAP_HAIKU"),
+		ModelMapSonnet:  os.Getenv("MODEL_MAP_SONNET"),
+		ModelMapOpus:    os.Getenv("MODEL_MAP_OPUS"),
 	}
 
 	timeoutMs, err := strconv.Atoi(envOrDefault("REQUEST_TIMEOUT_MS", "120000"))
