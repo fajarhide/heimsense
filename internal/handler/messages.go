@@ -13,13 +13,17 @@ import (
 	"github.com/fajarhide/heimsense/internal/adapter"
 	"github.com/fajarhide/heimsense/internal/client"
 	"github.com/fajarhide/heimsense/internal/config"
+	"github.com/fajarhide/heimsense/internal/omni"
+	"github.com/fajarhide/heimsense/internal/router"
 )
 
 // MessagesHandler handles Anthropic /v1/messages requests.
 type MessagesHandler struct {
-	client *client.Client
-	cfg    *config.Config
-	logger *slog.Logger
+	client    *client.Client
+	chain     *router.ProviderChain
+	cfg       *config.Config
+	distiller *omni.Distiller
+	logger    *slog.Logger
 }
 
 // NewMessagesHandler creates a new handler for the /v1/messages endpoint.
@@ -31,6 +35,17 @@ func NewMessagesHandler(c *client.Client, cfg *config.Config, logger *slog.Logge
 	}
 }
 
+// SetChain attaches a ProviderChain to the handler. When set, the chain
+// is used instead of the single legacy client.
+func (h *MessagesHandler) SetChain(chain *router.ProviderChain) {
+	h.chain = chain
+}
+
+// SetDistiller attaches an Omni Distiller to the handler for pre-processing.
+func (h *MessagesHandler) SetDistiller(d *omni.Distiller) {
+	h.distiller = d
+}
+
 // ServeHTTP implements http.Handler.
 func (h *MessagesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -40,10 +55,56 @@ func (h *MessagesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	start := time.Now()
 
-	// Parse request body.
-	var req adapter.AnthropicRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// Parse request body into raw map first (for Omni distillation on raw JSON).
+	var rawBody map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&rawBody); err != nil {
 		h.logger.Error("failed to decode request", "error", err)
+		h.writeError(w, http.StatusBadRequest, "invalid_request_error", "invalid JSON: "+err.Error())
+		return
+	}
+
+	// --- Omni Pre-Hook: distill tool_results before transforming ---
+	if h.distiller != nil {
+		if msgs, ok := rawBody["messages"].([]any); ok {
+			// Convert to []map[string]any
+			msgMaps := make([]map[string]any, 0, len(msgs))
+			for _, m := range msgs {
+				if mm, ok := m.(map[string]any); ok {
+					msgMaps = append(msgMaps, mm)
+				}
+			}
+
+			stats, err := h.distiller.DistillMessages(r.Context(), msgMaps)
+			if err != nil {
+				h.logger.Warn("omni distillation error, proceeding with original", "error", err)
+			} else if stats != nil && stats.OriginalTokens > 0 {
+				h.logger.Info("omni pre-hook applied",
+					"saved_percent", fmt.Sprintf("%.1f%%", stats.SavedPercent),
+					"original_tokens", stats.OriginalTokens,
+					"distilled_tokens", stats.DistilledTokens,
+				)
+			}
+
+			// Rebuild messages in rawBody from distilled maps
+			rebuilt := make([]any, len(msgMaps))
+			for i, mm := range msgMaps {
+				rebuilt[i] = mm
+			}
+			rawBody["messages"] = rebuilt
+		}
+	}
+
+	// Re-serialize and decode into the typed struct
+	rawBytes, err := json.Marshal(rawBody)
+	if err != nil {
+		h.logger.Error("failed to re-marshal request after distillation", "error", err)
+		h.writeError(w, http.StatusInternalServerError, "api_error", "internal processing error")
+		return
+	}
+
+	var req adapter.AnthropicRequest
+	if err := json.Unmarshal(rawBytes, &req); err != nil {
+		h.logger.Error("failed to decode typed request", "error", err)
 		h.writeError(w, http.StatusBadRequest, "invalid_request_error", "invalid JSON: "+err.Error())
 		return
 	}
@@ -84,7 +145,15 @@ func (h *MessagesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // handleNonStream processes a non-streaming request.
 func (h *MessagesHandler) handleNonStream(w http.ResponseWriter, r *http.Request, oaiReq *adapter.OpenAIRequest, authHeader string, start time.Time) {
-	oaiResp, err := h.client.ChatCompletion(r.Context(), oaiReq, authHeader)
+	var oaiResp *adapter.OpenAIResponse
+	var err error
+
+	if h.chain != nil {
+		oaiResp, err = h.chain.ChatCompletion(r.Context(), oaiReq, authHeader)
+	} else {
+		oaiResp, err = h.client.ChatCompletion(r.Context(), oaiReq, authHeader)
+	}
+
 	if err != nil {
 		h.logger.Error("upstream request failed", "error", err, "duration", time.Since(start))
 		h.writeError(w, http.StatusBadGateway, "api_error", "upstream error: "+err.Error())
@@ -114,7 +183,15 @@ func (h *MessagesHandler) handleStream(w http.ResponseWriter, r *http.Request, o
 		return
 	}
 
-	body, err := h.client.ChatCompletionStream(r.Context(), oaiReq, authHeader)
+	var body io.ReadCloser
+	var err error
+
+	if h.chain != nil {
+		body, err = h.chain.ChatCompletionStream(r.Context(), oaiReq, authHeader)
+	} else {
+		body, err = h.client.ChatCompletionStream(r.Context(), oaiReq, authHeader)
+	}
+
 	if err != nil {
 		h.logger.Error("upstream stream request failed", "error", err, "duration", time.Since(start))
 		h.writeError(w, http.StatusBadGateway, "api_error", "upstream error: "+err.Error())
