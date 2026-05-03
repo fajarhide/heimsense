@@ -9,20 +9,8 @@ services:
     container_name: heimsense
     ports:
       - "8080:8080"
-    environment:
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.openai.com/v1}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - ANTHROPIC_CUSTOM_MODEL_OPTION=${ANTHROPIC_CUSTOM_MODEL_OPTION:-}
-      - ANTHROPIC_CUSTOM_MODEL_OPTION_NAME=${ANTHROPIC_CUSTOM_MODEL_OPTION_NAME:-}
-      - ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION=${ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION:-}
-      - MODEL_MAP_HAIKU=${MODEL_MAP_HAIKU:-}
-      - MODEL_MAP_SONNET=${MODEL_MAP_SONNET:-}
-      - MODEL_MAP_OPUS=${MODEL_MAP_OPUS:-}
-      - LISTEN_ADDR=${LISTEN_ADDR:-:8080}
-      - REQUEST_TIMEOUT_MS=${REQUEST_TIMEOUT_MS:-120000}
-      - MAX_RETRIES=${MAX_RETRIES:-3}
-    env_file:
-      - .env
+    volumes:
+      - ~/.heimsense/config.toml:/.heimsense/config.toml:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]

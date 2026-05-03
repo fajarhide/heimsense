@@ -374,18 +374,6 @@ func ConfigureClaudeCode(listenAddr, model string) error {
 func SyncToClaude() error {
 	cfg, err := config.LoadTOML()
 	if err != nil {
-		// Fallback to older dotenv if TOML doesn't exist
-		home, _ := os.UserHomeDir()
-		envPath := filepath.Join(home, ".heimsense", ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			config.LoadDotEnv()
-			listenAddr := os.Getenv("LISTEN_ADDR")
-			if listenAddr == "" {
-				listenAddr = ":8080"
-			}
-			model := os.Getenv("ANTHROPIC_CUSTOM_MODEL_OPTION")
-			return ConfigureClaudeCode(listenAddr, model)
-		}
 		return fmt.Errorf("config not found — run 'heimsense setup' first")
 	}
 

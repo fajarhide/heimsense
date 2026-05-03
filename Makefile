@@ -59,9 +59,9 @@ lint:
 ci: fmt lint test build
 	@echo "✅ All CI checks passed successfully!"
 
-## setup: Configure Claude Code to use this adapter
+## setup: Configure Heimsense and Claude Code
 setup:
-	@bash scripts/setup-claude.sh
+	go run $(MAIN_PKG) setup
 
 ## revert: Revert Claude Code to previous settings
 revert:

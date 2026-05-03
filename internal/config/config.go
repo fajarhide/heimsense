@@ -2,9 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
 	"time"
 )
 
@@ -53,59 +50,12 @@ type Config struct {
 	Providers []ProviderConfig
 }
 
-// Load reads configuration. It first tries to load config.toml.
-// If config.toml doesn't exist but .env does, it migrates .env to config.toml.
+// Load reads configuration. It only loads from config.toml now.
 func Load() (*Config, error) {
-	// Check if TOML exists
-	if _, err := os.Stat(ConfigFile()); os.IsNotExist(err) {
-		// Check if .env exists
-		home, _ := os.UserHomeDir()
-		envPath := filepath.Join(home, ".heimsense", ".env")
-		if _, err := os.Stat(envPath); err == nil {
-			// Migrate .env to config.toml
-			if err := MigrateFromDotEnv(); err != nil {
-				return nil, fmt.Errorf("migration failed: %w", err)
-			}
-		}
-	}
-
-	// Try loading from TOML, if it fails fallback to .env loading for extreme fallback
+	// Try loading from TOML
 	if cfg, err := LoadTOML(); err == nil {
 		return cfg, nil
 	}
 
-	// Fallback logic if TOML decoding failed or didn't exist and no .env existed
-	LoadDotEnv()
-
-	cfg := &Config{
-		ListenAddr:      envOrDefault("LISTEN_ADDR", ":8080"),
-		UpstreamBaseURL: envOrDefault("ANTHROPIC_BASE_URL", "https://api.openai.com/v1"),
-		APIKey:          os.Getenv("ANTHROPIC_API_KEY"),
-		DefaultModel:    envOrDefault("ANTHROPIC_CUSTOM_MODEL_OPTION", ""),
-		ForceModel:      envOrDefault("ANTHROPIC_CUSTOM_FORCE_MODEL", ""),
-		MaxRetries:      3,
-		ModelMapHaiku:   os.Getenv("MODEL_MAP_HAIKU"),
-		ModelMapSonnet:  os.Getenv("MODEL_MAP_SONNET"),
-		ModelMapOpus:    os.Getenv("MODEL_MAP_OPUS"),
-	}
-
-	timeoutMs, err := strconv.Atoi(envOrDefault("REQUEST_TIMEOUT_MS", "120000"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid REQUEST_TIMEOUT_MS: %w", err)
-	}
-	cfg.RequestTimeout = time.Duration(timeoutMs) * time.Millisecond
-
-	retries := envOrDefault("MAX_RETRIES", "3")
-	if r, err := strconv.Atoi(retries); err == nil {
-		cfg.MaxRetries = r
-	}
-
-	return cfg, nil
-}
-
-func envOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
+	return nil, fmt.Errorf("failed to load config.toml, please run 'heimsense setup'")
 }
