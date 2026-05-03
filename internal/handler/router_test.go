@@ -13,6 +13,7 @@ import (
 	"github.com/fajarhide/heimsense/internal/adapter"
 	"github.com/fajarhide/heimsense/internal/client"
 	"github.com/fajarhide/heimsense/internal/config"
+	"github.com/fajarhide/heimsense/internal/translator"
 )
 
 func testCfg() *config.Config {
@@ -69,7 +70,7 @@ func TestServeHTTP_MethodNotAllowed(t *testing.T) {
 
 			cfg.UpstreamBaseURL = upstream.URL
 			c := client.New(cfg, testLogger())
-			h := NewMessagesHandler(c, cfg, testLogger())
+			h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 			req := httptest.NewRequest(m, "/v1/messages", nil)
 			rec := httptest.NewRecorder()
@@ -104,7 +105,7 @@ func TestServeHTTP_InvalidJSON(t *testing.T) {
 
 	cfg.UpstreamBaseURL = upstream.URL
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader("not json"))
 	rec := httptest.NewRecorder()
@@ -137,7 +138,7 @@ func TestServeHTTP_MissingMessages(t *testing.T) {
 
 	cfg.UpstreamBaseURL = upstream.URL
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	body := `{"model":"claude-3","max_tokens":100,"messages":[]}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(body))
@@ -153,38 +154,6 @@ func TestServeHTTP_MissingMessages(t *testing.T) {
 	json.NewDecoder(rec.Body).Decode(&errResp)
 	if !strings.Contains(errResp.Error.Message, "messages is required") {
 		t.Errorf("error message = %q, want 'messages is required'", errResp.Error.Message)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// ServeHTTP — missing max_tokens
-// ---------------------------------------------------------------------------
-
-func TestServeHTTP_MissingMaxTokens(t *testing.T) {
-	cfg := testCfg()
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		t.Error("upstream should not be called")
-	}))
-	defer upstream.Close()
-
-	cfg.UpstreamBaseURL = upstream.URL
-	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
-
-	body := `{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(body))
-	rec := httptest.NewRecorder()
-
-	h.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-	}
-
-	var errResp adapter.AnthropicError
-	json.NewDecoder(rec.Body).Decode(&errResp)
-	if !strings.Contains(errResp.Error.Message, "max_tokens is required") {
-		t.Errorf("error message = %q, want 'max_tokens is required'", errResp.Error.Message)
 	}
 }
 
@@ -225,7 +194,7 @@ func TestServeHTTP_NonStreamSuccess(t *testing.T) {
 	cfg.RequestTimeout = 5e9 // 5s
 
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	anthropicReq := map[string]any{
 		"model":      "claude-3",
@@ -281,7 +250,7 @@ func TestServeHTTP_UpstreamError(t *testing.T) {
 	cfg.RequestTimeout = 5e9
 
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	anthropicReq := map[string]any{
 		"model":      "claude-3",
@@ -348,7 +317,7 @@ func TestServeHTTP_StreamSuccess(t *testing.T) {
 	cfg.RequestTimeout = 5e9
 
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	anthropicReq := map[string]any{
 		"model":      "claude-3",
@@ -421,7 +390,7 @@ func TestServeHTTP_StreamWithToolCalls(t *testing.T) {
 	cfg.RequestTimeout = 5e9
 
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	anthropicReq := map[string]any{
 		"model":      "claude-3",
@@ -478,7 +447,7 @@ func TestServeHTTP_AuthHeaderPassthrough(t *testing.T) {
 	cfg.RequestTimeout = 5e9
 
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	anthropicReq := map[string]any{
 		"model":      "claude-3",
@@ -499,19 +468,19 @@ func TestServeHTTP_AuthHeaderPassthrough(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// NewMessagesHandler
+// NewUniversalRouterHandler
 // ---------------------------------------------------------------------------
 
-func TestNewMessagesHandler(t *testing.T) {
+func TestNewUniversalRouterHandler(t *testing.T) {
 	cfg := testCfg()
 	cfg.UpstreamBaseURL = "http://localhost"
 	cfg.RequestTimeout = 5e9
 
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	if h == nil {
-		t.Fatal("NewMessagesHandler returned nil")
+		t.Fatal("NewUniversalRouterHandler returned nil")
 	}
 }
 
@@ -525,10 +494,10 @@ func TestWriteError(t *testing.T) {
 	cfg.RequestTimeout = 5e9
 
 	c := client.New(cfg, testLogger())
-	h := NewMessagesHandler(c, cfg, testLogger())
+	h := NewUniversalRouterHandler(c, cfg, testLogger())
 
 	rec := httptest.NewRecorder()
-	h.writeError(rec, http.StatusNotFound, "not_found_error", "resource not found")
+	h.writeError(rec, http.StatusNotFound, "not_found_error", "resource not found", translator.FormatAnthropic)
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusNotFound)

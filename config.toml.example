@@ -1,0 +1,37 @@
+[server]
+# Port to run the Heimsense API server on
+listen_addr = ":8080"
+# Maximum timeout for requests in milliseconds
+request_timeout_ms = 120000
+
+[omni]
+# Enable token distillation to save costs
+enabled = true
+# Local URL where the Omni MCP server is running
+mcp_url = "http://localhost:7070"
+# Minimum size of tool results (in bytes) to trigger Omni distillation
+min_content_bytes = 1024
+
+# Primary Provider Configuration
+[[providers]]
+name = "Primary DeepSeek"
+base_url = "https://api.deepseek.com/v1"
+api_key = "sk-deepseek..."
+default_model = "deepseek-coder"
+priority = 1
+max_retries = 3
+
+# Optional Fallback Provider (Used if primary returns 429 or 5xx)
+[[providers]]
+name = "Fallback Groq"
+base_url = "https://api.groq.com/openai/v1"
+api_key = "gsk-..."
+default_model = "llama-3.3-70b-versatile"
+priority = 2
+max_retries = 2
+
+# [model_map]
+# Optional model overrides for Anthropic specific requests
+# haiku = "gemini-2.5-flash"
+# sonnet = "gemini-2.5-pro"
+# opus = "gemini-2.5-pro"

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
+	"github.com/fajarhide/heimsense/internal/config"
 	"golang.org/x/term"
 )
 
@@ -37,92 +39,135 @@ var providers = []Provider{
 	{Name: "Ollama (local)", BaseURL: "http://localhost:11434/v1"},
 }
 
-// SetupConfig holds user-provided setup values.
-type SetupConfig struct {
-	BaseURL    string
-	APIKey     string
-	Model      string
-	ModelName  string
-	ModelDesc  string
-	ListenAddr string
-}
-
-// ConfigDir returns the path to ~/.heimsense.
-func ConfigDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".heimsense")
-}
-
-// ConfigPath returns the path to ~/.heimsense/.env.
-func ConfigPath() string {
-	return filepath.Join(ConfigDir(), ".env")
-}
-
-// NeedsSetup returns true if ~/.heimsense/.env does not exist.
+// NeedsSetup returns true if neither config.toml nor .env exists.
 func NeedsSetup() bool {
-	_, err := os.Stat(ConfigPath())
-	return os.IsNotExist(err)
+	home, _ := os.UserHomeDir()
+	tomlPath := filepath.Join(home, ".heimsense", "config.toml")
+	envPath := filepath.Join(home, ".heimsense", ".env")
+
+	_, errToml := os.Stat(tomlPath)
+	_, errEnv := os.Stat(envPath)
+
+	return os.IsNotExist(errToml) && os.IsNotExist(errEnv)
 }
 
 // RunWizard runs the interactive first-run setup wizard.
-// It prompts the user for provider, API key, model, then writes
-// config files and configures Claude Code.
 func RunWizard() error {
 	reader := bufio.NewReader(os.Stdin)
 
 	printHeader()
 
-	// 1. Provider selection
-	baseURL, err := promptProvider(reader)
+	// 1. Omni Integration
+	omniEnabled := promptYesNo(reader, "Enable Omni token distillation? (Saves 30-90% tokens) [Y/n]")
+
+	// 2. Fallback tier configuration
+	useFallback := promptYesNo(reader, "Configure a fallback provider for reliability? [y/N]")
+
+	// 3. Configure Provider 1
+	fmt.Printf("\n  %s--- Configure Primary Provider ---%s\n", bold, nc)
+	p1URL, err := promptProvider(reader)
 	if err != nil {
-		return fmt.Errorf("provider selection: %w", err)
+		return err
+	}
+	p1Key, err := promptAPIKey()
+	if err != nil {
+		return err
+	}
+	p1Model, err := promptModel(reader)
+	if err != nil {
+		return err
 	}
 
-	// 2. API Key (masked input)
-	apiKey, err := promptAPIKey()
-	if err != nil {
-		return fmt.Errorf("api key input: %w", err)
-	}
-
-	// 3. Model name
-	model, err := promptModel(reader)
-	if err != nil {
-		return fmt.Errorf("model input: %w", err)
+	var p2URL, p2Key, p2Model string
+	if useFallback {
+		fmt.Printf("\n  %s--- Configure Fallback Provider ---%s\n", bold, nc)
+		p2URL, err = promptProvider(reader)
+		if err != nil {
+			return err
+		}
+		p2Key, err = promptAPIKey()
+		if err != nil {
+			return err
+		}
+		p2Model, err = promptModel(reader)
+		if err != nil {
+			return err
+		}
 	}
 
 	// 4. Listen port
+	fmt.Println()
 	listenAddr, err := promptPort(reader)
 	if err != nil {
 		return fmt.Errorf("port input: %w", err)
 	}
 
-	cfg := SetupConfig{
-		BaseURL:    baseURL,
-		APIKey:     apiKey,
-		Model:      model,
-		ModelName:  "Heimsense Custom Model",
-		ModelDesc:  "Custom model via Heimsense adapter",
-		ListenAddr: listenAddr,
+	// Assemble TOML Config
+	cfg := config.RootConfig{
+		Server: config.ServerConfig{
+			ListenAddr:       listenAddr,
+			RequestTimeoutMs: 120000,
+		},
+		Omni: config.OmniConfig{
+			Enabled:         omniEnabled,
+			MCPURL:          "http://localhost:7070",
+			MinContentBytes: 1024,
+		},
+		ModelMap: config.ModelMapConfig{},
+		Providers: []config.ProviderConfig{
+			{
+				Name:         "primary",
+				BaseURL:      p1URL,
+				APIKey:       p1Key,
+				DefaultModel: p1Model,
+				Priority:     1,
+				MaxRetries:   3,
+			},
+		},
+	}
+
+	if useFallback {
+		cfg.Providers = append(cfg.Providers, config.ProviderConfig{
+			Name:         "fallback",
+			BaseURL:      p2URL,
+			APIKey:       p2Key,
+			DefaultModel: p2Model,
+			Priority:     2,
+			MaxRetries:   3,
+		})
 	}
 
 	// Show summary
 	fmt.Println()
 	fmt.Printf("  %s┌─ Summary ─────────────────────────────────┐%s\n", dim, nc)
-	fmt.Printf("  %s│%s  Provider   %s%s%s\n", dim, nc, cyan, cfg.BaseURL, nc)
-	fmt.Printf("  %s│%s  API Key    %s%s%s\n", dim, nc, dim, maskKey(cfg.APIKey), nc)
-	fmt.Printf("  %s│%s  Model      %s%s%s\n", dim, nc, cyan, cfg.Model, nc)
-	fmt.Printf("  %s│%s  Listen     %s%s%s\n", dim, nc, cyan, cfg.ListenAddr, nc)
+	fmt.Printf("  %s│%s  Omni Distiller : %s%v%s\n", dim, nc, cyan, omniEnabled, nc)
+	fmt.Printf("  %s│%s  Primary        : %s%s%s (%s)\n", dim, nc, cyan, p1URL, nc, p1Model)
+	if useFallback {
+		fmt.Printf("  %s│%s  Fallback       : %s%s%s (%s)\n", dim, nc, cyan, p2URL, nc, p2Model)
+	}
+	fmt.Printf("  %s│%s  Listen Addr    : %s%s%s\n", dim, nc, cyan, listenAddr, nc)
 	fmt.Printf("  %s└────────────────────────────────────────────┘%s\n", dim, nc)
 	fmt.Println()
 
 	// 5. Write config
-	if err := WriteConfig(cfg); err != nil {
+	home, _ := os.UserHomeDir()
+	configDir := filepath.Join(home, ".heimsense")
+	os.MkdirAll(configDir, 0755)
+	configPath := filepath.Join(configDir, "config.toml")
+
+	f, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
-	fmt.Printf("  %s✓%s Config saved    %s~/.heimsense/.env%s\n", green, nc, dim, nc)
+	if err := toml.NewEncoder(f).Encode(cfg); err != nil {
+		f.Close()
+		return fmt.Errorf("encoding toml: %w", err)
+	}
+	f.Close()
+	fmt.Printf("  %s✓%s Config saved    %s~/.heimsense/config.toml%s\n", green, nc, dim, nc)
 
 	// 6. Configure Claude Code
-	if err := ConfigureClaudeCode(cfg); err != nil {
+	if err := ConfigureClaudeCode(listenAddr, p1Model); err != nil {
 		fmt.Printf("  %s!%s Claude Code     %sskipped (%v)%s\n", "\033[1;33m", nc, dim, err, nc)
 	} else {
 		fmt.Printf("  %s✓%s Claude Code    %s~/.claude/settings.json%s\n", green, nc, dim, nc)
@@ -131,15 +176,33 @@ func RunWizard() error {
 	fmt.Println()
 	fmt.Printf("  %s%sSetup complete!%s\n", bold, green, nc)
 	fmt.Println()
-	fmt.Printf("  %s1.%s Server will start on %s%s%s\n", bold, nc, cyan, cfg.ListenAddr, nc)
+	fmt.Printf("  %s1.%s Server will start on %s%s%s\n", bold, nc, cyan, listenAddr, nc)
 	fmt.Printf("  %s2.%s Open another terminal and run %sclaude%s\n", bold, nc, cyan, nc)
 	fmt.Printf("  %s3.%s Inside Claude, run %s/model%s and select the custom model\n", bold, nc, cyan, nc)
 	fmt.Println()
-	fmt.Printf("  %sEdit config anytime: %s~/.heimsense/.env%s\n", dim, cyan, nc)
-	fmt.Printf("  %sRe-run setup:        %sheimsense setup%s\n", dim, cyan, nc)
-	fmt.Println()
 
 	return nil
+}
+
+func promptYesNo(reader *bufio.Reader, prompt string) bool {
+	defaultYes := strings.Contains(prompt, "[Y/n]")
+	for {
+		fmt.Printf("  %s%s%s ", bold, prompt, nc)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return defaultYes
+		}
+		input = strings.TrimSpace(strings.ToLower(input))
+		if input == "" {
+			return defaultYes
+		}
+		if input == "y" || input == "yes" {
+			return true
+		}
+		if input == "n" || input == "no" {
+			return false
+		}
+	}
 }
 
 func printHeader() {
@@ -147,12 +210,10 @@ func printHeader() {
 	fmt.Printf("  %s%sHEIM·SENSE%s  %ssetup%s\n", bold, cyan, nc, dim, nc)
 	fmt.Printf("  %sUnlock Your Claude Code for Any LLM%s\n", "\033[3;36m", nc)
 	fmt.Println()
-	fmt.Printf("  %sLet's configure your LLM provider.%s\n", dim, nc)
-	fmt.Println()
 }
 
 func promptProvider(reader *bufio.Reader) (string, error) {
-	fmt.Printf("  %sSelect your provider:%s\n\n", bold, nc)
+	fmt.Printf("  %sSelect provider type:%s\n\n", bold, nc)
 	for i, p := range providers {
 		fmt.Printf("    %s%d%s  %s  %s(%s)%s\n", bold, i+1, nc, p.Name, dim, p.BaseURL, nc)
 	}
@@ -199,36 +260,28 @@ func promptProvider(reader *bufio.Reader) (string, error) {
 func promptAPIKey() (string, error) {
 	fmt.Printf("  %sAPI Key: %s", bold, nc)
 
-	// Read password without echo
 	fd := int(syscall.Stdin)
 	if term.IsTerminal(fd) {
 		keyBytes, err := term.ReadPassword(fd)
-		fmt.Println() // newline after hidden input
+		fmt.Println()
 		if err != nil {
 			return "", err
 		}
 		key := strings.TrimSpace(string(keyBytes))
-		if key == "" {
-			return "", fmt.Errorf("API key cannot be empty")
-		}
-		return key, nil
+		return key, nil // Can be empty for local Ollama
 	}
 
-	// Fallback for non-terminal (e.g. pipe)
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
 	key := strings.TrimSpace(input)
-	if key == "" {
-		return "", fmt.Errorf("API key cannot be empty")
-	}
 	return key, nil
 }
 
 func promptModel(reader *bufio.Reader) (string, error) {
-	fmt.Printf("  %sModel [gpt-4o-mini]: %s", bold, nc)
+	fmt.Printf("  %sDefault Model [gpt-4o-mini]: %s", bold, nc)
 	input, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
@@ -250,7 +303,6 @@ func promptPort(reader *bufio.Reader) (string, error) {
 	if input == "" {
 		return ":8080", nil
 	}
-	// Validate it's a number
 	port, err := strconv.Atoi(input)
 	if err != nil || port < 1 || port > 65535 {
 		return "", fmt.Errorf("invalid port: %s (must be 1-65535)", input)
@@ -258,47 +310,17 @@ func promptPort(reader *bufio.Reader) (string, error) {
 	return fmt.Sprintf(":%d", port), nil
 }
 
-// maskKey returns a masked representation of an API key.
 func maskKey(key string) string {
+	if key == "" {
+		return "none"
+	}
 	if len(key) <= 8 {
 		return strings.Repeat("•", len(key))
 	}
 	return key[:4] + strings.Repeat("•", len(key)-8) + key[len(key)-4:]
 }
 
-// WriteConfig writes the setup config to ~/.heimsense/.env.
-func WriteConfig(cfg SetupConfig) error {
-	dir := ConfigDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("creating config dir: %w", err)
-	}
-
-	content := fmt.Sprintf(`# Heimsense config — generated by setup wizard
-# Edit this file to change settings, then restart heimsense.
-
-ANTHROPIC_BASE_URL=%s
-ANTHROPIC_API_KEY=%s
-ANTHROPIC_CUSTOM_MODEL_OPTION=%s
-ANTHROPIC_CUSTOM_MODEL_OPTION_NAME=%s
-ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION=%s
-
-# (Optional) Map Claude Code's hardcoded background models to your provider's cheaper models
-# If left empty, these will automatically fallback to your ANTHROPIC_CUSTOM_MODEL_OPTION above.
-# MODEL_MAP_HAIKU=gemini-2.5-flash
-# MODEL_MAP_SONNET=gemini-2.5-pro
-# MODEL_MAP_OPUS=gemini-2.5-pro
-
-LISTEN_ADDR=%s
-REQUEST_TIMEOUT_MS=120000
-MAX_RETRIES=3
-`, cfg.BaseURL, cfg.APIKey, cfg.Model, cfg.ModelName, cfg.ModelDesc, cfg.ListenAddr)
-
-	return os.WriteFile(ConfigPath(), []byte(content), 0o600)
-}
-
-// ConfigureClaudeCode writes or updates ~/.claude/settings.json
-// to point at the local Heimsense adapter.
-func ConfigureClaudeCode(cfg SetupConfig) error {
+func ConfigureClaudeCode(listenAddr, model string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -306,12 +328,8 @@ func ConfigureClaudeCode(cfg SetupConfig) error {
 
 	claudeDir := filepath.Join(home, ".claude")
 	settingsPath := filepath.Join(claudeDir, "settings.json")
+	os.MkdirAll(claudeDir, 0755)
 
-	if err := os.MkdirAll(claudeDir, 0o755); err != nil {
-		return err
-	}
-
-	// Load existing or create new
 	var data map[string]interface{}
 	if raw, err := os.ReadFile(settingsPath); err == nil {
 		if err := json.Unmarshal(raw, &data); err != nil {
@@ -323,44 +341,29 @@ func ConfigureClaudeCode(cfg SetupConfig) error {
 		}
 	}
 
-	// Backup existing
-	if _, err := os.Stat(settingsPath); err == nil {
-		backupPath := settingsPath + ".bak"
-		if raw, err := os.ReadFile(settingsPath); err == nil {
-			os.WriteFile(backupPath, raw, 0o644)
-		}
-	}
-
-	// Merge env settings
 	env, ok := data["env"].(map[string]interface{})
 	if !ok {
 		env = make(map[string]interface{})
 	}
-	env["ANTHROPIC_BASE_URL"] = "http://localhost" + cfg.ListenAddr
-	env["ANTHROPIC_CUSTOM_MODEL_OPTION"] = cfg.Model
-	env["ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"] = cfg.ModelName
-	env["ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION"] = cfg.ModelDesc
-	env["ANTHROPIC_AUTH_TOKEN"] = cfg.APIKey
+	env["ANTHROPIC_BASE_URL"] = "http://localhost" + listenAddr
+	env["ANTHROPIC_CUSTOM_MODEL_OPTION"] = model
+	env["ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"] = "Heimsense Custom Model"
+	env["ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION"] = "Custom model via Heimsense adapter"
+	// Removing ANTHROPIC_AUTH_TOKEN so it's managed entirely by Heimsense config
+	delete(env, "ANTHROPIC_AUTH_TOKEN")
 	env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
 	data["env"] = env
 
-	out, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
+	out, _ := json.MarshalIndent(data, "", "  ")
+	os.WriteFile(settingsPath, append(out, '\n'), 0644)
 
-	if err := os.WriteFile(settingsPath, append(out, '\n'), 0o644); err != nil {
-		return err
-	}
-
-	// Bypass onboarding in ~/.claude.json
 	claudeJSON := filepath.Join(home, ".claude.json")
 	if raw, err := os.ReadFile(claudeJSON); err == nil {
 		var cj map[string]interface{}
 		if json.Unmarshal(raw, &cj) == nil {
 			cj["hasCompletedOnboarding"] = true
 			if out, err := json.MarshalIndent(cj, "", "  "); err == nil {
-				os.WriteFile(claudeJSON, append(out, '\n'), 0o644)
+				os.WriteFile(claudeJSON, append(out, '\n'), 0644)
 			}
 		}
 	}
@@ -368,77 +371,17 @@ func ConfigureClaudeCode(cfg SetupConfig) error {
 	return nil
 }
 
-// SyncToClaude reads ~/.heimsense/.env, extracts settings, and updates
-// ~/.claude/settings.json to match. This allows users to edit the .env
-// file manually and sync changes without re-running the wizard.
 func SyncToClaude() error {
-	envPath := ConfigPath()
-	if _, err := os.Stat(envPath); os.IsNotExist(err) {
-		return fmt.Errorf("config not found at %s — run 'heimsense setup' first", envPath)
-	}
-
-	env, err := parseEnvFile(envPath)
+	cfg, err := config.LoadTOML()
 	if err != nil {
-		return fmt.Errorf("reading config: %w", err)
+		return fmt.Errorf("config not found — run 'heimsense setup' first")
 	}
 
-	listenAddr := env["LISTEN_ADDR"]
-	if listenAddr == "" {
-		listenAddr = ":8080"
-	}
-
-	cfg := SetupConfig{
-		BaseURL:    env["ANTHROPIC_BASE_URL"],
-		APIKey:     env["ANTHROPIC_API_KEY"],
-		Model:      env["ANTHROPIC_CUSTOM_MODEL_OPTION"],
-		ModelName:  env["ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"],
-		ModelDesc:  env["ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION"],
-		ListenAddr: listenAddr,
-	}
-
-	if cfg.ModelName == "" {
-		cfg.ModelName = "Heimsense Custom Model"
-	}
-	if cfg.ModelDesc == "" {
-		cfg.ModelDesc = "Custom model via Heimsense adapter"
-	}
-
-	if err := ConfigureClaudeCode(cfg); err != nil {
+	if err := ConfigureClaudeCode(cfg.ListenAddr, cfg.DefaultModel); err != nil {
 		return err
 	}
 
 	fmt.Printf("\n  %s%sHEIM·SENSE%s  %ssync%s\n\n", bold, cyan, nc, dim, nc)
 	fmt.Printf("  %s✓%s Synced to %s~/.claude/settings.json%s\n\n", green, nc, dim, nc)
-	fmt.Printf("  %s┌─ Synced values ────────────────────────────┐%s\n", dim, nc)
-	fmt.Printf("  %s│%s  Provider   %s%s%s\n", dim, nc, cyan, cfg.BaseURL, nc)
-	fmt.Printf("  %s│%s  API Key    %s%s%s\n", dim, nc, dim, maskKey(cfg.APIKey), nc)
-	fmt.Printf("  %s│%s  Model      %s%s%s\n", dim, nc, cyan, cfg.Model, nc)
-	fmt.Printf("  %s│%s  Listen     %s%s%s  →  %sANTHROPIC_BASE_URL=http://localhost%s%s\n", dim, nc, cyan, cfg.ListenAddr, nc, dim, cfg.ListenAddr, nc)
-	fmt.Printf("  %s└────────────────────────────────────────────┘%s\n\n", dim, nc)
-
 	return nil
-}
-
-// parseEnvFile reads a .env file and returns a map of key-value pairs.
-func parseEnvFile(path string) (map[string]string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	result := make(map[string]string)
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		result[strings.TrimSpace(key)] = strings.TrimSpace(value)
-	}
-	return result, scanner.Err()
 }

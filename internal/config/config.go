@@ -2,8 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"time"
 )
 
@@ -24,7 +22,6 @@ type Config struct {
 	// ForceModel overrides the model requested by the client to be this model.
 	ForceModel string
 
-
 	// RequestTimeout is the maximum duration for upstream requests.
 	RequestTimeout time.Duration
 
@@ -39,42 +36,26 @@ type Config struct {
 
 	// ModelMapOpus overrides any Claude Opus requests locally.
 	ModelMapOpus string
+
+	// OmniEnabled determines if the Omni distillation hook is active.
+	OmniEnabled bool
+
+	// OmniMCPURL is the local URL to the Omni MCP server.
+	OmniMCPURL string
+
+	// OmniMinContentBytes is the minimum size of a tool_result to trigger distillation.
+	OmniMinContentBytes int
+
+	// Providers is the list of upstream providers for the fallback chain.
+	Providers []ProviderConfig
 }
 
-// Load reads configuration from environment variables with sensible defaults.
-// It first loads ~/.heimsense/.env if present (shell env vars take precedence).
+// Load reads configuration. It only loads from config.toml now.
 func Load() (*Config, error) {
-	LoadDotEnv()
-
-	cfg := &Config{
-		ListenAddr:      envOrDefault("LISTEN_ADDR", ":8080"),
-		UpstreamBaseURL: envOrDefault("ANTHROPIC_BASE_URL", "https://api.openai.com/v1"),
-		APIKey:          os.Getenv("ANTHROPIC_API_KEY"),
-		DefaultModel:    envOrDefault("ANTHROPIC_CUSTOM_MODEL_OPTION", ""),
-		ForceModel:      envOrDefault("ANTHROPIC_CUSTOM_FORCE_MODEL", ""),
-		MaxRetries:      3,
-		ModelMapHaiku:   os.Getenv("MODEL_MAP_HAIKU"),
-		ModelMapSonnet:  os.Getenv("MODEL_MAP_SONNET"),
-		ModelMapOpus:    os.Getenv("MODEL_MAP_OPUS"),
+	// Try loading from TOML
+	if cfg, err := LoadTOML(); err == nil {
+		return cfg, nil
 	}
 
-	timeoutMs, err := strconv.Atoi(envOrDefault("REQUEST_TIMEOUT_MS", "120000"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid REQUEST_TIMEOUT_MS: %w", err)
-	}
-	cfg.RequestTimeout = time.Duration(timeoutMs) * time.Millisecond
-
-	retries := envOrDefault("MAX_RETRIES", "3")
-	if r, err := strconv.Atoi(retries); err == nil {
-		cfg.MaxRetries = r
-	}
-
-	return cfg, nil
-}
-
-func envOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
+	return nil, fmt.Errorf("failed to load config.toml, please run 'heimsense setup'")
 }

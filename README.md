@@ -2,36 +2,80 @@
 
 <p align="center">
   <a href="https://github.com/fajarhide/heimsense/stargazers"><img src="https://img.shields.io/github/stars/fajarhide/heimsense?style=for-the-badge" alt="Stars"/></a>
-  <a href="https://github.com/fajarhide/heimsense/releases"><img src="https://img.shields.io/badge/Updated-Mar_31,_2026-brightgreen?style=for-the-badge" alt="Last Update"/></a>
+  <a href="https://github.com/fajarhide/heimsense/releases"><img src="https://img.shields.io/badge/Updated-May_03,_2026-brightgreen?style=for-the-badge" alt="Last Update"/></a>
   <a href="./go.mod"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go Version"/></a>
   <a href="#supported-providers"><img src="https://img.shields.io/badge/Providers-20+-orange?style=for-the-badge" alt="Supported Providers"/></a>
   <a href="./Containerfile"><img src="https://img.shields.io/badge/Container-ready-blueviolet?style=for-the-badge&logo=podman&logoColor=white" alt="Container Ready"/></a>
   <a href="https://github.com/fajarhide/heimsense/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/fajarhide/heimsense/ci.yml?style=for-the-badge&label=CI" alt="CI"/></a>
-  <a href="https://github.com/fajarhide/heimsense/releases/latest"><img src="https://img.shields.io/github/release/fajarhide/heimsense?style=for-the-badge" alt="Release Version"/></a>
 </p>
 
-<p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"/></a>
-  <a href="https://github.com/fajarhide/heimsense/issues"><img src="https://img.shields.io/github/issues/fajarhide/heimsense.svg" alt="Issues"/></a>
-  <a href="https://github.com/fajarhide/heimsense/pulls"><img src="https://img.shields.io/github/last-commit/fajarhide/heimsense.svg" alt="Last Commit"/></a>
-</p>
+## Table of Contents
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Our Philosophy](#our-philosophy)
+- [Features](#features)
+- [Architecture Overview](#architecture-overview)
+- [Quick Start](#quick-start)
+  - [1. Installation](#1-installation)
+  - [2. Configuration & Execution](#2-configuration--execution)
+  - [3. Usage with AI Agents](#3-usage-with-ai-agents)
+- [Configuration (`config.toml`)](#configuration-configtoml)
+- [Supported Providers](#supported-providers)
+- [Container Deployment](#container-deployment)
+- [Development & API Reference](#development--api-reference)
 
-Heimsense is a lightweight, production-ready API adapter that enables the use of the Claude Code CLI with any LLM provider, such as OpenAI, DeepSeek, Groq, or local models. It functions by translating Anthropic's API protocol to the OpenAI format and vice-versa. 
+---
 
-Delivered as a single compiled Go binary, Heimsense eliminates the need for Python or Node.js runtime environments.
+## The Problem
 
-```text
-  Claude Code CLI ────► [ Heimsense ] ────► Any LLM Provider
- (Anthropic format)     [ :8080     ]       (OpenAI format)
-```
+Modern AI agents and coding assistants (like Claude Code, OpenClaw, Hermes, or Cursor) are incredibly powerful, but they often come with a strict limitation: **Vendor Lock-in**.
+
+1. **Format Incompatibility:** Claude Code only speaks the *Anthropic format* (`/v1/messages`), while many open-source agents only speak the *OpenAI format* (`/v1/chat/completions`).
+2. **Cost & Rate Limits:** Using official, premium models exclusively can drain your budget quickly. When you hit a rate limit (429) or a server outage (500) during a complex coding task, your workflow is abruptly halted.
+3. **Bloated Workarounds:** Existing proxy tools that try to solve this are often bloated Node.js or Python applications that consume hundreds of megabytes of RAM and require complex package managers just to run locally.
+
+## The Solution
+
+**Heimsense** is a lightweight, production-ready Universal AI Router and API adapter. 
+
+It acts as an intelligent bridge (Bifröst) between your favorite AI coding agents and **any** LLM provider in the world. Heimsense automatically detects the incoming request format (OpenAI or Anthropic) and translates it on the fly, allowing you to use DeepSeek, Groq, local Ollama models, or even Free-tier API providers inside Claude Code or any other agent.
+
+Furthermore, Heimsense features an enterprise-grade **Provider Fallback Chain**. If your primary model goes down or hits a rate limit, Heimsense instantly routes your request to a backup provider without interrupting your workflow.
+
+## Our Philosophy
+
+* **Performance First (Go-Native):** Distributed as a single compiled Go binary. Zero dependencies, no `npm`, no `pip`. It runs with a footprint of less than 20MB RAM.
+* **Universal Compatibility:** An AI router should be invisible. Whether the client speaks OpenAI or Anthropic, Heimsense just makes it work.
+* **Token Efficiency:** AI should be cheap. Through the integration of the Omni Distillation Engine, Heimsense proactively strips away bloated token usage from large `tool_result` outputs, saving you money automatically.
+* **Robustness:** AI APIs are notoriously flaky. Heimsense guarantees reliability through exponential backoff and transparent fallback chains.
+
+---
 
 ## Features
 
-* **Provider Flexibility:** Compatible with various models including DeepSeek, ChatGPT, Groq, or local options like Ollama.
-* **Cost Efficiency:** Allows utilization of more cost-effective models as alternatives to Anthropic's pricing.
-* **Zero Dependencies:** Distributed as a single Go binary. No external runtime environments required.
-* **Production Ready:** Includes automatic retries on 5xx errors, graceful shutdown, and health check endpoints.
-* **Automated Setup:** Features an interactive CLI to automatically configure Claude Code.
+* **Universal Translator Engine:** Bi-directional translation between Anthropic's `/v1/messages` and OpenAI's `/v1/chat/completions`.
+* **Multi-Provider Fallback:** Configure primary, secondary, and tertiary providers. Automatically failover on 429 (Rate Limit) or 5xx errors.
+* **Token Distillation (Omni):** Intercepts and compresses heavy tool outputs before they reach the LLM, reducing token costs drastically.
+* **Zero Dependencies:** A single `heimsense` executable is all you need.
+* **Automated Setup:** Features an interactive CLI wizard (`heimsense setup`) to configure your tools automatically.
+
+---
+
+## Architecture Overview
+
+```text
+  Claude Code CLI    ────►                 ────►  Anthropic API
+ (Anthropic format)           [ Heimsense ]       (Anthropic format)
+                              [ :8080     ] 
+  OpenClaw / Cursor  ────►                 ────►  DeepSeek / Groq / Ollama
+ (OpenAI format)                                  (OpenAI format)
+```
+
+1. The AI Agent sends a query in its native format.
+2. Heimsense's Inbound Engine standardizes the request.
+3. The request is routed through the **Provider Chain**, handling retries and fallbacks.
+4. The Outbound Engine formats the payload specifically for the target upstream provider.
+5. SSE Streams and tool calls are translated backwards in real-time.
 
 ---
 
@@ -39,17 +83,17 @@ Delivered as a single compiled Go binary, Heimsense eliminates the need for Pyth
 
 ### 1. Installation
 
-Execute the installation script to download the appropriate binary for your operating system to `~/.local/bin/`:
+Download the appropriate binary for your OS to `~/.local/bin/`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fajarhide/heimsense/main/scripts/install.sh | bash
 ```
 
-Alternatively, pre-compiled binaries are available on the [Releases](https://github.com/fajarhide/heimsense/releases) page, or it can be built from source using `make build`.
+*Alternatively, download pre-compiled binaries from the [Releases](https://github.com/fajarhide/heimsense/releases) page or build from source using `make build`.*
 
 ### 2. Configuration & Execution
 
-Run the interactive setup. This process prompts for your target API key and configures the Claude Code CLI:
+Run the interactive setup wizard. This process will create your `~/.heimsense/config.toml` and prompt you to set up your primary and fallback providers.
 
 ```bash
 heimsense setup
@@ -61,32 +105,59 @@ Start the Heimsense server:
 heimsense run
 ```
 
-### 3. Usage with Claude Code
+### 3. Usage with AI Agents
 
-Open a new terminal session and launch Claude Code:
-
+**For Claude Code:**
 ```bash
 claude
 # Use the /model command and select "Heimsense Custom Model"
 ```
 
+**For Open-Source Agents (OpenAI Compatible):**
+Simply point your agent's API Base URL to: `http://localhost:8080/v1`
+
 ---
 
-## Configuration
+## Configuration (`config.toml`)
 
-Configuration is managed via the `~/.heimsense/.env` file. Modify these variables to adjust your provider or model settings.
+Heimsense uses a robust TOML configuration file located at `~/.heimsense/config.toml`. 
 
-| Variable | Example | Description |
-|----------|---------|-------------|
-| `ANTHROPIC_BASE_URL` | `https://api.openai.com/v1` | Target LLM provider API URL |
-| `ANTHROPIC_API_KEY` | `sk-...` | Authentication token for the upstream API |
-| `ANTHROPIC_CUSTOM_MODEL_OPTION` | `gpt-4o` | Default model when none is specified or mapped |
-| `MODEL_MAP_HAIKU` | `gemini-2.5-flash` | (Optional) Redirection for Claude Haiku requests |
-| `MODEL_MAP_SONNET` | `gemini-2.5-pro` | (Optional) Redirection for Claude Sonnet requests |
-| `MODEL_MAP_OPUS` | `gemini-2.5-pro` | (Optional) Redirection for Claude Opus requests |
-| `LISTEN_ADDR` | `:8080` | Local server listening address and port |
+```toml
+[server]
+listen_addr = ":8080"
+request_timeout_ms = 120000
 
-*Note: After making manual changes to the `.env` file, execute `heimsense sync` to propagate the updates to Claude Code's configuration.*
+[omni]
+enabled = true
+mcp_url = "http://localhost:7070"
+min_content_bytes = 1024
+
+[[providers]]
+name = "Primary DeepSeek"
+base_url = "https://api.deepseek.com/v1"
+api_key = "sk-deepseek..."
+default_model = "deepseek-coder"
+priority = 1
+max_retries = 3
+
+[[providers]]
+name = "Fallback Groq"
+base_url = "https://api.groq.com/openai/v1"
+api_key = "gsk-..."
+default_model = "llama-3.3-70b-versatile"
+priority = 2
+max_retries = 2
+```
+
+---
+
+## Supported Providers
+
+Heimsense translates formats flawlessly, unlocking support for:
+
+* **Cloud Services:** OpenAI, DeepSeek, Groq, Together AI, Mistral, xAI (Grok), OpenRouter, Fireworks AI, Anthropic (Native).
+* **Free Tiers & OAuth:** OpenCode Free, Kiro AI, GitHub Copilot (Coming soon).
+* **Local Implementations:** Ollama, LM Studio, vLLM, LocalAI.
 
 ---
 
@@ -95,55 +166,19 @@ Configuration is managed via the `~/.heimsense/.env` file. Modify these variable
 Heimsense is distributed as a compact container image (~15MB) for environments utilizing Docker or Podman.
 
 ```bash
-# 1. Prepare configuration
-cp env.example .env
-# Edit .env to set your target API key and Base URL
-
-# 2. Start the container
+# Start the container
 docker run -d \
   --name heimsense \
   -p 8080:8080 \
-  -v $(pwd)/.env:/.env \
+  -v ~/.heimsense/config.toml:/.heimsense/config.toml \
   ghcr.io/fajarhide/heimsense:latest
-
-# 3. Configure local Claude Code instance
-heimsense setup
 ```
 
 ---
 
-## Supported Providers
-
-Heimsense is compatible with endpoints adhering to the OpenAI API specification, including:
-
-* **Cloud Services:** OpenAI, DeepSeek, Groq, Together AI, Mistral, xAI (Grok), OpenRouter, Fireworks AI.
-* **Local Implementations:** Ollama, LM Studio, vLLM, LocalAI.
-
----
-
-## Architecture Overview
-
-Heimsense operates as a translation proxy layer between the Claude Code client and the target LLM API.
-
-1. The Claude Code client sends queries in the **Anthropic format** (`/v1/messages`).
-2. Heimsense transforms the request payload into the **OpenAI format** (`/v1/chat/completions`).
-3. The query is forwarded to the designated LLM provider.
-4. The provider's response, including SSE streams and tool/function calls, is translated back to the Anthropic format for consumption by the client.
-
----
-
-## Comparison: Why Heimsense
-
-In contrast to similar tools built with Python or Node.js, Heimsense prioritizes simplicity and minimal footprint through its Go implementation:
-
-* **No package managers:** Bypasses `pip`, `npm`, or virtual environments in favor of a standalone binary.
-* **Minimal resource usage:** Typical RAM consumption is under 20MB.
-* **Integrated CLI:** Dedicated commands (`setup`, `sync`, `run`) streamline the configuration process for Claude Code.
-* **Reliability features:** Incorporates exponential backoff retries, graceful shutdown, structured logging, and health monitoring.
-
----
-
 ## Development & API Reference
+
+For detailed instructions on setting up your local environment, running tests, and understanding the codebase architecture, please refer to our **[Local Development Guide](DEVELOPMENT.md)**.
 
 Standard development commands:
 
@@ -151,39 +186,26 @@ Standard development commands:
 make run        # Build binary and start server
 make test       # Execute test suite
 make build      # Compile executable to ./bin/
-make lint       # Run code formatters and linters
+make ci         # Run formatters, linters, and test suite
 ```
 
 <details>
 <summary><strong>API Endpoints</strong></summary>
 
 ### `POST /v1/messages` 
+Handles requests formatted according to the Anthropic API specification.
 
-This endpoint handles requests formatted according to the Anthropic API specification:
-
-**Streaming Example:**
-```bash
-curl -X POST http://localhost:8080/v1/messages \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-key" \
-  -d '{
-    "model": "gpt-4o",
-    "max_tokens": 1024,
-    "stream": true,
-    "messages": [{"role": "user", "content": "Explain the concept of an API."}]
-  }'
-```
-
-*(Tool and function calling features are supported)*
+### `POST /v1/chat/completions`
+Handles requests formatted according to the standard OpenAI API specification.
 
 ### `GET /health`
+Health check endpoint.
 ```bash
 curl http://localhost:8080/health
 # → {"status":"ok"}
 ```
 
 </details>
-
 
 ## Star History
 
