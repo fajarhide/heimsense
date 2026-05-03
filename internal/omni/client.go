@@ -38,10 +38,10 @@ type DistillRequest struct {
 
 // DistillResponse is the response from the Omni distillation endpoint.
 type DistillResponse struct {
-	Distilled      string   `json:"distilled"`
-	OriginalTokens int      `json:"original_tokens"`
-	DistilledTokens int     `json:"distilled_tokens"`
-	FiltersApplied []string `json:"filters_applied"`
+	Distilled       string   `json:"distilled"`
+	OriginalTokens  int      `json:"original_tokens"`
+	DistilledTokens int      `json:"distilled_tokens"`
+	FiltersApplied  []string `json:"filters_applied"`
 }
 
 // Distill sends content to the Omni MCP server for distillation.

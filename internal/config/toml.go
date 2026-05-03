@@ -11,10 +11,10 @@ import (
 
 // RootConfig represents the structure of the config.toml file
 type RootConfig struct {
-	Server   ServerConfig     `toml:"server"`
-	Omni     OmniConfig       `toml:"omni"`
+	Server    ServerConfig     `toml:"server"`
+	Omni      OmniConfig       `toml:"omni"`
 	Providers []ProviderConfig `toml:"providers"`
-	ModelMap ModelMapConfig   `toml:"model_map"`
+	ModelMap  ModelMapConfig   `toml:"model_map"`
 }
 
 type ServerConfig struct {
@@ -64,15 +64,15 @@ func LoadTOML() (*Config, error) {
 // rootToConfig converts the TOML representation into the internal Config model.
 func rootToConfig(root RootConfig) (*Config, error) {
 	cfg := &Config{
-		ListenAddr:      root.Server.ListenAddr,
-		RequestTimeout:  time.Duration(root.Server.RequestTimeoutMs) * time.Millisecond,
-		ModelMapHaiku:   root.ModelMap.Haiku,
-		ModelMapSonnet:  root.ModelMap.Sonnet,
-		ModelMapOpus:    root.ModelMap.Opus,
-		OmniEnabled:     root.Omni.Enabled,
-		OmniMCPURL:      root.Omni.MCPURL,
+		ListenAddr:          root.Server.ListenAddr,
+		RequestTimeout:      time.Duration(root.Server.RequestTimeoutMs) * time.Millisecond,
+		ModelMapHaiku:       root.ModelMap.Haiku,
+		ModelMapSonnet:      root.ModelMap.Sonnet,
+		ModelMapOpus:        root.ModelMap.Opus,
+		OmniEnabled:         root.Omni.Enabled,
+		OmniMCPURL:          root.Omni.MCPURL,
 		OmniMinContentBytes: root.Omni.MinContentBytes,
-		Providers:       root.Providers,
+		Providers:           root.Providers,
 	}
 
 	if cfg.ListenAddr == "" {

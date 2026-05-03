@@ -12,7 +12,7 @@ import (
 
 func TestDistiller_DistillMessages(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := DistillResponse{
 			Distilled:       "distilled result",
@@ -37,14 +37,14 @@ func TestDistiller_DistillMessages(t *testing.T) {
 					"text": "hello",
 				},
 				map[string]any{
-					"type": "tool_result",
+					"type":        "tool_result",
 					"tool_use_id": "tool_123",
-					"content": "this is a very long string that should be distilled",
+					"content":     "this is a very long string that should be distilled",
 				},
 				map[string]any{
-					"type": "tool_result",
+					"type":        "tool_result",
 					"tool_use_id": "tool_456",
-					"content": "short", // too short, shouldn't be distilled
+					"content":     "short", // too short, shouldn't be distilled
 				},
 			},
 		},
@@ -65,7 +65,7 @@ func TestDistiller_DistillMessages(t *testing.T) {
 
 	// Check if the message was actually modified
 	content := messages[0]["content"].([]any)
-	
+
 	textBlock := content[0].(map[string]any)
 	if textBlock["text"] != "hello" {
 		t.Errorf("text block modified unexpectedly: %v", textBlock)
@@ -113,9 +113,9 @@ func TestExtractToolResultContent(t *testing.T) {
 			want: `{"foo":"bar"}`, // JSON marshaling fallback
 		},
 		{
-			name: "no content",
+			name:  "no content",
 			block: map[string]any{},
-			want: "",
+			want:  "",
 		},
 	}
 

@@ -22,7 +22,7 @@ func TestMigrateFromDotEnv(t *testing.T) {
 	// Create a mock .env file
 	heimsenseDir := filepath.Join(tmpDir, ".heimsense")
 	os.MkdirAll(heimsenseDir, 0o755)
-	
+
 	envContent := `
 LISTEN_ADDR=:9090
 ANTHROPIC_BASE_URL=https://api.deepseek.com/v1
@@ -60,11 +60,11 @@ MAX_RETRIES=5
 	if cfg.ListenAddr != ":9090" {
 		t.Errorf("expected ListenAddr ':9090', got '%s'", cfg.ListenAddr)
 	}
-	
+
 	if len(cfg.Providers) != 1 {
 		t.Fatalf("expected 1 provider, got %d", len(cfg.Providers))
 	}
-	
+
 	p := cfg.Providers[0]
 	if p.BaseURL != "https://api.deepseek.com/v1" {
 		t.Errorf("expected BaseURL 'https://api.deepseek.com/v1', got '%s'", p.BaseURL)

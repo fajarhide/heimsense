@@ -16,7 +16,7 @@ func MigrateFromDotEnv() error {
 	if err != nil {
 		return err
 	}
-	
+
 	envPath := filepath.Join(home, ".heimsense", ".env")
 	tomlPath := ConfigFile()
 
@@ -25,7 +25,7 @@ func MigrateFromDotEnv() error {
 
 	root := RootConfig{
 		Server: ServerConfig{
-			ListenAddr:       envOrDefault("LISTEN_ADDR", ":8080"),
+			ListenAddr: envOrDefault("LISTEN_ADDR", ":8080"),
 		},
 		Omni: OmniConfig{
 			Enabled:         false,

@@ -12,21 +12,21 @@ import (
 
 func TestClient_Distill_Success(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/distill" {
 			t.Errorf("expected /distill, got %s", r.URL.Path)
 		}
-		
+
 		var req DistillRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatal(err)
 		}
-		
+
 		if req.Content != "large diff content" {
 			t.Errorf("unexpected content: %s", req.Content)
 		}
-		
+
 		resp := DistillResponse{
 			Distilled:       "small diff",
 			OriginalTokens:  100,
@@ -38,16 +38,16 @@ func TestClient_Distill_Success(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, logger)
-	
+
 	distilled, stats, err := client.Distill(context.Background(), "large diff content")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if distilled != "small diff" {
 		t.Errorf("expected 'small diff', got '%s'", distilled)
 	}
-	
+
 	if stats == nil {
 		t.Fatal("expected stats, got nil")
 	}
@@ -61,7 +61,7 @@ func TestClient_Distill_Success(t *testing.T) {
 
 func TestClient_Distill_ErrorFallback(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	
+
 	// Server returns 500 error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -70,17 +70,17 @@ func TestClient_Distill_ErrorFallback(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, logger)
-	
+
 	distilled, stats, err := client.Distill(context.Background(), "original content")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	
+
 	// Should fallback to returning the original content
 	if distilled != "original content" {
 		t.Errorf("expected fallback to original content, got '%s'", distilled)
 	}
-	
+
 	if stats != nil {
 		t.Errorf("expected nil stats on error, got %v", stats)
 	}
@@ -88,7 +88,7 @@ func TestClient_Distill_ErrorFallback(t *testing.T) {
 
 func TestClient_IsHealthy(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/health" {
 			t.Errorf("expected /health, got %s", r.URL.Path)
@@ -105,7 +105,7 @@ func TestClient_IsHealthy(t *testing.T) {
 
 func TestClient_IsHealthy_Failed(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 	}))

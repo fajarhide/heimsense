@@ -39,14 +39,14 @@ func TestProviderChain_FallbackOn500(t *testing.T) {
 	}
 
 	chain := NewProviderChain(providers, 2*time.Second, logger)
-	
+
 	req := &adapter.OpenAIRequest{Model: "test"}
 	resp, err := chain.ChatCompletion(context.Background(), req, "")
-	
+
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if resp.ID != "resp-2" {
 		t.Errorf("expected response from p2, got %s", resp.ID)
 	}
@@ -64,7 +64,7 @@ func TestProviderChain_FallbackOn429(t *testing.T) {
 	// Provider 2: Succeeds
 	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := adapter.OpenAIResponse{
-			ID:    "resp-2",
+			ID: "resp-2",
 		}
 		json.NewEncoder(w).Encode(resp)
 	}))
@@ -76,10 +76,10 @@ func TestProviderChain_FallbackOn429(t *testing.T) {
 	}
 
 	chain := NewProviderChain(providers, 2*time.Second, logger)
-	
+
 	req := &adapter.OpenAIRequest{Model: "test"}
 	resp, err := chain.ChatCompletion(context.Background(), req, "")
-	
+
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -111,14 +111,14 @@ func TestProviderChain_NoFallbackOn400(t *testing.T) {
 	}
 
 	chain := NewProviderChain(providers, 2*time.Second, logger)
-	
+
 	req := &adapter.OpenAIRequest{Model: "test"}
 	_, err := chain.ChatCompletion(context.Background(), req, "")
-	
+
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	
+
 	if err == ErrAllProvidersFailed {
 		t.Errorf("expected client error, got ErrAllProvidersFailed")
 	}
@@ -143,10 +143,10 @@ func TestProviderChain_AllFailed(t *testing.T) {
 	}
 
 	chain := NewProviderChain(providers, 2*time.Second, logger)
-	
+
 	req := &adapter.OpenAIRequest{Model: "test"}
 	_, err := chain.ChatCompletion(context.Background(), req, "")
-	
+
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

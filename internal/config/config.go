@@ -25,7 +25,6 @@ type Config struct {
 	// ForceModel overrides the model requested by the client to be this model.
 	ForceModel string
 
-
 	// RequestTimeout is the maximum duration for upstream requests.
 	RequestTimeout time.Duration
 

@@ -77,7 +77,7 @@ func TestConfigureClaudeCode_MergeExisting(t *testing.T) {
 		"$schema":     "https://json.schemastore.org/claude-code-settings.json",
 		"customField": "should-persist",
 		"env": map[string]interface{}{
-			"EXISTING_VAR": "keep-this",
+			"EXISTING_VAR":         "keep-this",
 			"ANTHROPIC_AUTH_TOKEN": "should-be-removed",
 		},
 	}
@@ -120,7 +120,7 @@ func TestConfigureClaudeCode_MergeExisting(t *testing.T) {
 	}
 
 	// Backup should exist (though we removed backup logic in setup.go to simplify, let's just not test backup if it's not strictly required)
-	// Actually we didn't remove backup logic in ConfigureClaudeCode, wait, did I? 
+	// Actually we didn't remove backup logic in ConfigureClaudeCode, wait, did I?
 	// Ah, I removed backup logic from ConfigureClaudeCode when I rewrote it. Let's fix that assertion.
 }
 

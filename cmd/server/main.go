@@ -95,11 +95,11 @@ func main() {
 
 	// Initialize client and handler.
 	oaiClient := client.New(cfg, logger)
-	messagesHandler := handler.NewMessagesHandler(oaiClient, cfg, logger)
+	routerHandler := handler.NewUniversalRouterHandler(oaiClient, cfg, logger)
 
 	// Configure Provider Chain if configured.
 	if chain := router.NewProviderChain(cfg.Providers, cfg.RequestTimeout, logger); chain != nil {
-		messagesHandler.SetChain(chain)
+		routerHandler.SetChain(chain)
 		logger.Info("provider chain initialized", "providers_count", len(cfg.Providers))
 	} else {
 		logger.Info("using legacy single provider")
@@ -109,13 +109,14 @@ func main() {
 	if cfg.OmniEnabled {
 		omniClient := omni.NewClient(cfg.OmniMCPURL, logger)
 		distiller := omni.NewDistiller(omniClient, cfg.OmniMinContentBytes, logger)
-		messagesHandler.SetDistiller(distiller)
+		routerHandler.SetDistiller(distiller)
 		logger.Info("omni distiller enabled", "mcp_url", cfg.OmniMCPURL, "min_bytes", cfg.OmniMinContentBytes)
 	}
 
 	// Routes.
 	mux := http.NewServeMux()
-	mux.Handle("/v1/messages", messagesHandler)
+	mux.Handle("/v1/messages", routerHandler)
+	mux.Handle("/v1/chat/completions", routerHandler)
 	mux.HandleFunc("/health", handler.HealthHandler)
 
 	// Wrap with logging middleware.

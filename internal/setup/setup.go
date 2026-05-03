@@ -10,9 +10,9 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/term"
 	"github.com/BurntSushi/toml"
 	"github.com/fajarhide/heimsense/internal/config"
+	"golang.org/x/term"
 )
 
 // ANSI color helpers
@@ -47,7 +47,7 @@ func NeedsSetup() bool {
 
 	_, errToml := os.Stat(tomlPath)
 	_, errEnv := os.Stat(envPath)
-	
+
 	return os.IsNotExist(errToml) && os.IsNotExist(errEnv)
 }
 
@@ -66,21 +66,33 @@ func RunWizard() error {
 	// 3. Configure Provider 1
 	fmt.Printf("\n  %s--- Configure Primary Provider ---%s\n", bold, nc)
 	p1URL, err := promptProvider(reader)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	p1Key, err := promptAPIKey()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	p1Model, err := promptModel(reader)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	var p2URL, p2Key, p2Model string
 	if useFallback {
 		fmt.Printf("\n  %s--- Configure Fallback Provider ---%s\n", bold, nc)
 		p2URL, err = promptProvider(reader)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		p2Key, err = promptAPIKey()
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		p2Model, err = promptModel(reader)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 
 	// 4. Listen port
@@ -177,11 +189,19 @@ func promptYesNo(reader *bufio.Reader, prompt string) bool {
 	for {
 		fmt.Printf("  %s%s%s ", bold, prompt, nc)
 		input, err := reader.ReadString('\n')
-		if err != nil { return defaultYes }
+		if err != nil {
+			return defaultYes
+		}
 		input = strings.TrimSpace(strings.ToLower(input))
-		if input == "" { return defaultYes }
-		if input == "y" || input == "yes" { return true }
-		if input == "n" || input == "no" { return false }
+		if input == "" {
+			return defaultYes
+		}
+		if input == "y" || input == "yes" {
+			return true
+		}
+		if input == "n" || input == "no" {
+			return false
+		}
 	}
 }
 
@@ -291,7 +311,9 @@ func promptPort(reader *bufio.Reader) (string, error) {
 }
 
 func maskKey(key string) string {
-	if key == "" { return "none" }
+	if key == "" {
+		return "none"
+	}
 	if len(key) <= 8 {
 		return strings.Repeat("•", len(key))
 	}
@@ -328,7 +350,7 @@ func ConfigureClaudeCode(listenAddr, model string) error {
 	env["ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"] = "Heimsense Custom Model"
 	env["ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION"] = "Custom model via Heimsense adapter"
 	// Removing ANTHROPIC_AUTH_TOKEN so it's managed entirely by Heimsense config
-	delete(env, "ANTHROPIC_AUTH_TOKEN") 
+	delete(env, "ANTHROPIC_AUTH_TOKEN")
 	env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
 	data["env"] = env
 
@@ -358,7 +380,9 @@ func SyncToClaude() error {
 		if _, err := os.Stat(envPath); err == nil {
 			config.LoadDotEnv()
 			listenAddr := os.Getenv("LISTEN_ADDR")
-			if listenAddr == "" { listenAddr = ":8080" }
+			if listenAddr == "" {
+				listenAddr = ":8080"
+			}
 			model := os.Getenv("ANTHROPIC_CUSTOM_MODEL_OPTION")
 			return ConfigureClaudeCode(listenAddr, model)
 		}

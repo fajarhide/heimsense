@@ -55,6 +55,10 @@ fmt:
 lint:
 	go vet ./...
 
+## ci: Run all CI checks (fmt, lint, test, build)
+ci: fmt lint test build
+	@echo "✅ All CI checks passed successfully!"
+
 ## setup: Configure Claude Code to use this adapter
 setup:
 	@bash scripts/setup-claude.sh
