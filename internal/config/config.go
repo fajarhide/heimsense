@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -39,11 +40,42 @@ type Config struct {
 
 	// ModelMapOpus overrides any Claude Opus requests locally.
 	ModelMapOpus string
+
+	// OmniEnabled determines if the Omni distillation hook is active.
+	OmniEnabled bool
+
+	// OmniMCPURL is the local URL to the Omni MCP server.
+	OmniMCPURL string
+
+	// OmniMinContentBytes is the minimum size of a tool_result to trigger distillation.
+	OmniMinContentBytes int
+
+	// Providers is the list of upstream providers for the fallback chain.
+	Providers []ProviderConfig
 }
 
-// Load reads configuration from environment variables with sensible defaults.
-// It first loads ~/.heimsense/.env if present (shell env vars take precedence).
+// Load reads configuration. It first tries to load config.toml.
+// If config.toml doesn't exist but .env does, it migrates .env to config.toml.
 func Load() (*Config, error) {
+	// Check if TOML exists
+	if _, err := os.Stat(ConfigFile()); os.IsNotExist(err) {
+		// Check if .env exists
+		home, _ := os.UserHomeDir()
+		envPath := filepath.Join(home, ".heimsense", ".env")
+		if _, err := os.Stat(envPath); err == nil {
+			// Migrate .env to config.toml
+			if err := MigrateFromDotEnv(); err != nil {
+				return nil, fmt.Errorf("migration failed: %w", err)
+			}
+		}
+	}
+
+	// Try loading from TOML, if it fails fallback to .env loading for extreme fallback
+	if cfg, err := LoadTOML(); err == nil {
+		return cfg, nil
+	}
+
+	// Fallback logic if TOML decoding failed or didn't exist and no .env existed
 	LoadDotEnv()
 
 	cfg := &Config{
