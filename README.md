@@ -16,14 +16,22 @@
   <a href="https://github.com/fajarhide/heimsense/pulls"><img src="https://img.shields.io/github/last-commit/fajarhide/heimsense.svg" alt="Last Commit"/></a>
 </p>
 
-Heimsense is a lightweight, production-ready API adapter that enables the use of the Claude Code CLI with any LLM provider, such as OpenAI, DeepSeek, Groq, or local models. It functions by translating Anthropic's API protocol to the OpenAI format and vice-versa. 
+Heimsense runs Claude Code, and agents built on the Anthropic Messages API, on any OpenAI-compatible model: DeepSeek, Groq, OpenAI, OpenRouter, or a model you host yourself. It translates Anthropic requests to the OpenAI format and translates the responses back, including streaming and tool calls.
 
-Delivered as a single compiled Go binary, Heimsense eliminates the need for Python or Node.js runtime environments.
+It ships as one Go binary. No Python, no Node.js, no database.
 
 ```text
-  Claude Code CLI ────► [ Heimsense ] ────► Any LLM Provider
- (Anthropic format)     [ :8080     ]       (OpenAI format)
+  Claude Code / your agent ────► [ Heimsense ] ────► Any LLM Provider
+     (Anthropic format)          [ :8080     ]       (OpenAI format)
 ```
+
+## Who it is for
+
+* **Developers** who want Claude Code's workflow on a cheaper or local model.
+* **Builders shipping agents to clients.** If your agent is built on Claude Code or the Anthropic API and per-token cost decides whether the deal makes money, point it at Heimsense and swap the model without rewriting the agent.
+* **Teams whose data must stay in-house.** Route requests to vLLM or Ollama on your own servers.
+
+Heimsense is an adapter, not an organization-wide AI gateway. If you need virtual keys, per-team budgets, SSO and an admin dashboard, use [LiteLLM](https://github.com/BerriAI/litellm).
 
 ## Features
 
@@ -132,14 +140,14 @@ Heimsense operates as a translation proxy layer between the Claude Code client a
 
 ---
 
-## Comparison: Why Heimsense
+## Why Heimsense
 
-In contrast to similar tools built with Python or Node.js, Heimsense prioritizes simplicity and minimal footprint through its Go implementation:
+Most proxies in this space are Python or Node.js apps. Heimsense is one Go binary, so it fits on a laptop, a small VPS, or next to your agent in the same container.
 
-* **No package managers:** Bypasses `pip`, `npm`, or virtual environments in favor of a standalone binary.
-* **Minimal resource usage:** Typical RAM consumption is under 20MB.
-* **Integrated CLI:** Dedicated commands (`setup`, `sync`, `run`) streamline the configuration process for Claude Code.
-* **Reliability features:** Incorporates exponential backoff retries, graceful shutdown, structured logging, and health monitoring.
+* Nothing to install besides the binary: no `pip`, `npm` or virtualenv.
+* Typical memory use is under 20MB.
+* `heimsense setup` writes the Claude Code config for you, and `heimsense sync` updates it after you edit `.env`.
+* Retries 5xx errors with exponential backoff, shuts down gracefully, logs in structured form, and exposes `/health`.
 
 ---
 
