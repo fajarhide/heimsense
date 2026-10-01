@@ -82,8 +82,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := cfg.Validate(); err != nil {
+		logger.Error("refusing to start", "error", err)
+		os.Exit(1)
+	}
+
 	logger.Info("configuration loaded",
 		"listen_addr", cfg.ListenAddr,
+		"inbound_auth", cfg.ProxyAPIKey != "",
 		"upstream_url", cfg.UpstreamBaseURL,
 		"default_model", cfg.DefaultModel,
 		"force_model", cfg.ForceModel,
@@ -97,7 +103,7 @@ func main() {
 
 	// Routes.
 	mux := http.NewServeMux()
-	mux.Handle("/v1/messages", messagesHandler)
+	mux.Handle("/v1/messages", handler.RequireProxyKey(cfg.ProxyAPIKey, messagesHandler))
 	mux.HandleFunc("/health", handler.HealthHandler)
 
 	// Wrap with logging middleware.
