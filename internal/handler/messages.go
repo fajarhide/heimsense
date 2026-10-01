@@ -13,6 +13,7 @@ import (
 	"github.com/fajarhide/heimsense/internal/adapter"
 	"github.com/fajarhide/heimsense/internal/client"
 	"github.com/fajarhide/heimsense/internal/config"
+	"github.com/fajarhide/heimsense/internal/usage"
 )
 
 // MessagesHandler handles Anthropic /v1/messages requests.
@@ -20,6 +21,7 @@ type MessagesHandler struct {
 	client *client.Client
 	cfg    *config.Config
 	logger *slog.Logger
+	meter  *usage.Meter
 }
 
 // NewMessagesHandler creates a new handler for the /v1/messages endpoint.
@@ -28,13 +30,30 @@ func NewMessagesHandler(c *client.Client, cfg *config.Config, logger *slog.Logge
 		client: c,
 		cfg:    cfg,
 		logger: logger,
+		meter: usage.New(usage.Limits{
+			Window:      cfg.UsageWindow,
+			MaxTokens:   cfg.MaxTokensPerWindow,
+			MaxRequests: cfg.MaxRequestsPerWindow,
+		}),
 	}
+}
+
+// Meter exposes the usage counters so the /usage endpoint can read the same
+// ones this handler writes.
+func (h *MessagesHandler) Meter() *usage.Meter {
+	return h.meter
 }
 
 // ServeHTTP implements http.Handler.
 func (h *MessagesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.writeError(w, http.StatusMethodNotAllowed, "invalid_request_error", "method not allowed")
+		return
+	}
+
+	// Checked before anything else: a refused request should cost nothing.
+	if err := h.meter.Allow(); err != nil {
+		h.writeLimitError(w, err)
 		return
 	}
 
@@ -92,6 +111,7 @@ func (h *MessagesHandler) handleNonStream(w http.ResponseWriter, r *http.Request
 	}
 
 	anthropicResp := adapter.ToAnthropicResponse(oaiResp)
+	h.meter.AddTokens(anthropicResp.Usage.InputTokens, anthropicResp.Usage.OutputTokens)
 
 	h.logger.Info("request completed",
 		"duration", time.Since(start),
@@ -272,6 +292,10 @@ func (h *MessagesHandler) handleStream(w http.ResponseWriter, r *http.Request, o
 		h.writeSSE(w, evt)
 	}
 	flusher.Flush()
+
+	if lastUsage != nil {
+		h.meter.AddTokens(lastUsage.PromptTokens, lastUsage.CompletionTokens)
+	}
 
 	h.logger.Info("stream completed", "duration", time.Since(start))
 }

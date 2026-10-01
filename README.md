@@ -94,6 +94,35 @@ Configuration is managed via the `~/.heimsense/.env` file. Modify these variable
 | `MODEL_MAP_OPUS` | `gemini-2.5-pro` | (Optional) Redirection for Claude Opus requests |
 | `LISTEN_ADDR` | `127.0.0.1:8080` | Server listening address and port. Loopback by default |
 | `PROXY_API_KEY` | _(unset)_ | Credential callers must present to reach `/v1/messages`. Required when `LISTEN_ADDR` is not loopback |
+| `USAGE_WINDOW_MINUTES` | `60` | Period the usage counters cover before resetting |
+| `MAX_TOKENS_PER_WINDOW` | _(unset)_ | Token ceiling per window. Unset means no ceiling |
+| `MAX_REQUESTS_PER_WINDOW` | _(unset)_ | Upstream request ceiling per window. Unset means no ceiling |
+
+### Spending ceiling
+
+Heimsense sits in front of agents that choose their own next request, so a retry
+or tool loop can keep calling until the upstream account is drained. Set
+`MAX_TOKENS_PER_WINDOW` or `MAX_REQUESTS_PER_WINDOW` and a request over the
+ceiling gets `429` with a `Retry-After`, which existing Anthropic clients
+already handle.
+
+Counters are always kept, whether or not a ceiling is set, and `GET /usage`
+reports them:
+
+```json
+{
+  "window_seconds": 3600,
+  "window_remaining_seconds": 2117,
+  "requests": 48,
+  "tokens": 1204338,
+  "max_requests": 500,
+  "max_tokens": 2000000
+}
+```
+
+They live in memory, so they start empty on restart and are not shared between
+instances. This is a brake on a runaway agent, not accounting: for per-key
+budgets and a billing record, use LiteLLM.
 
 ### Exposing the port
 

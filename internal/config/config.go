@@ -44,6 +44,15 @@ type Config struct {
 
 	// ModelMapOpus overrides any Claude Opus requests locally.
 	ModelMapOpus string
+
+	// UsageWindow is the period the usage counters cover before resetting.
+	UsageWindow time.Duration
+
+	// MaxTokensPerWindow caps tokens spent per window. Zero means no cap.
+	MaxTokensPerWindow int64
+
+	// MaxRequestsPerWindow caps upstream requests per window. Zero means no cap.
+	MaxRequestsPerWindow int64
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -70,12 +79,41 @@ func Load() (*Config, error) {
 	}
 	cfg.RequestTimeout = time.Duration(timeoutMs) * time.Millisecond
 
+	windowMinutes, err := strconv.Atoi(envOrDefault("USAGE_WINDOW_MINUTES", "60"))
+	if err != nil || windowMinutes <= 0 {
+		return nil, fmt.Errorf("invalid USAGE_WINDOW_MINUTES: %q", os.Getenv("USAGE_WINDOW_MINUTES"))
+	}
+	cfg.UsageWindow = time.Duration(windowMinutes) * time.Minute
+
+	cfg.MaxTokensPerWindow, err = envInt64("MAX_TOKENS_PER_WINDOW")
+	if err != nil {
+		return nil, err
+	}
+	cfg.MaxRequestsPerWindow, err = envInt64("MAX_REQUESTS_PER_WINDOW")
+	if err != nil {
+		return nil, err
+	}
+
 	retries := envOrDefault("MAX_RETRIES", "3")
 	if r, err := strconv.Atoi(retries); err == nil {
 		cfg.MaxRetries = r
 	}
 
 	return cfg, nil
+}
+
+// envInt64 reads a non-negative ceiling. Unset or empty means no ceiling.
+func envInt64(key string) (int64, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return 0, nil
+	}
+
+	v, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || v < 0 {
+		return 0, fmt.Errorf("invalid %s: %q, want a non-negative integer", key, raw)
+	}
+	return v, nil
 }
 
 func envOrDefault(key, fallback string) string {
