@@ -248,14 +248,16 @@ func promptPort(reader *bufio.Reader) (string, error) {
 	}
 	input = strings.TrimSpace(input)
 	if input == "" {
-		return ":8080", nil
+		return "127.0.0.1:8080", nil
 	}
 	// Validate it's a number
 	port, err := strconv.Atoi(input)
 	if err != nil || port < 1 || port > 65535 {
 		return "", fmt.Errorf("invalid port: %s (must be 1-65535)", input)
 	}
-	return fmt.Sprintf(":%d", port), nil
+	// Bound to loopback: the wizard configures Claude Code on this same machine,
+	// and a network-reachable bind needs PROXY_API_KEY. See Config.Validate.
+	return fmt.Sprintf("127.0.0.1:%d", port), nil
 }
 
 // maskKey returns a masked representation of an API key.
@@ -336,7 +338,7 @@ func ConfigureClaudeCode(cfg SetupConfig) error {
 	if !ok {
 		env = make(map[string]interface{})
 	}
-	env["ANTHROPIC_BASE_URL"] = "http://localhost" + cfg.ListenAddr
+	env["ANTHROPIC_BASE_URL"] = baseURLFor(cfg.ListenAddr)
 	env["ANTHROPIC_CUSTOM_MODEL_OPTION"] = cfg.Model
 	env["ANTHROPIC_CUSTOM_MODEL_OPTION_NAME"] = cfg.ModelName
 	env["ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION"] = cfg.ModelDesc
@@ -441,4 +443,13 @@ func parseEnvFile(path string) (map[string]string, error) {
 		result[strings.TrimSpace(key)] = strings.TrimSpace(value)
 	}
 	return result, scanner.Err()
+}
+
+// baseURLFor builds the URL Claude Code should call for a given listen address,
+// which may be either ":8080" or "127.0.0.1:8080".
+func baseURLFor(listenAddr string) string {
+	if strings.HasPrefix(listenAddr, ":") {
+		return "http://localhost" + listenAddr
+	}
+	return "http://" + listenAddr
 }

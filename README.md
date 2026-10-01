@@ -92,7 +92,21 @@ Configuration is managed via the `~/.heimsense/.env` file. Modify these variable
 | `MODEL_MAP_HAIKU` | `gemini-2.5-flash` | (Optional) Redirection for Claude Haiku requests |
 | `MODEL_MAP_SONNET` | `gemini-2.5-pro` | (Optional) Redirection for Claude Sonnet requests |
 | `MODEL_MAP_OPUS` | `gemini-2.5-pro` | (Optional) Redirection for Claude Opus requests |
-| `LISTEN_ADDR` | `:8080` | Local server listening address and port |
+| `LISTEN_ADDR` | `127.0.0.1:8080` | Server listening address and port. Loopback by default |
+| `PROXY_API_KEY` | _(unset)_ | Credential callers must present to reach `/v1/messages`. Required when `LISTEN_ADDR` is not loopback |
+
+### Exposing the port
+
+Heimsense binds `127.0.0.1` so only this machine can reach it, which is what the
+setup wizard configures. There is no inbound authentication by default, and a
+request that arrives without an `Authorization` header is served using
+`ANTHROPIC_API_KEY`, so an exposed port means anyone who reaches it spends your
+upstream credit.
+
+If you need it reachable, from another host or from a published container port,
+set `PROXY_API_KEY` and have callers send it. Heimsense refuses to start on a
+non-loopback address without one.
+
 
 *Note: After making manual changes to the `.env` file, execute `heimsense sync` to propagate the updates to Claude Code's configuration.*
 

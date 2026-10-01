@@ -110,8 +110,8 @@ func TestLoadDotEnv_NoFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	if cfg.ListenAddr != ":8080" {
-		t.Errorf("ListenAddr = %q, want default :8080", cfg.ListenAddr)
+	if cfg.ListenAddr != "127.0.0.1:8080" {
+		t.Errorf("ListenAddr = %q, want default 127.0.0.1:8080", cfg.ListenAddr)
 	}
 	if cfg.UpstreamBaseURL != "https://api.openai.com/v1" {
 		t.Errorf("UpstreamBaseURL = %q, want default", cfg.UpstreamBaseURL)
