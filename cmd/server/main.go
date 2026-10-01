@@ -105,6 +105,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/v1/messages", handler.RequireProxyKey(cfg.ProxyAPIKey, messagesHandler))
 	mux.HandleFunc("/health", handler.HealthHandler)
+	mux.Handle("/usage", handler.RequireProxyKey(cfg.ProxyAPIKey, handler.NewUsageHandler(messagesHandler.Meter())))
 
 	// Wrap with logging middleware.
 	srv := &http.Server{
